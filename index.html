@@ -947,20 +947,88 @@
       document.getElementById('importPanel').style.display = 'block';
       const status = document.getElementById('scanningStatus');
       status.style.display = 'block';
-      status.innerHTML = `<div class="scanning"><div class="spinner"></div><div class="text"><strong>Scanning Gmail...</strong><br><span>Looking for subscription receipts</span></div></div>`;
+      
+      // Initial state
+      status.innerHTML = `
+        <div class="scanning">
+          <div class="spinner"></div>
+          <div class="text" style="flex:1">
+            <strong>Connecting to Gmail...</strong><br>
+            <span id="scanProgress">Preparing scan</span>
+          </div>
+          <div id="scanStats" style="text-align:right; font-size:12px; color:var(--muted)"></div>
+        </div>
+        <div id="scanBar" style="margin-top:10px; height:6px; background:var(--border); border-radius:3px; overflow:hidden">
+          <div id="scanBarFill" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width 0.3s"></div>
+        </div>
+      `;
 
       try {
-        const res = await fetch(`${API_URL}/api/scan-subscriptions`);
-        const data = await res.json();
+        // Use streaming endpoint for real-time progress
+        const evtSource = new EventSource(`${API_URL}/api/scan-subscriptions?stream=true`);
         
-        if (data.subscriptions && data.subscriptions.length > 0) {
+        evtSource.addEventListener('status', (e) => {
+          const data = JSON.parse(e.data);
+          document.getElementById('scanProgress').textContent = data.message;
+          if (data.total) {
+            document.getElementById('scanStats').innerHTML = `0 / ${data.total} emails`;
+          }
+        });
+        
+        evtSource.addEventListener('progress', (e) => {
+          const data = JSON.parse(e.data);
+          const pct = Math.round((data.scanned / data.total) * 100);
+          document.getElementById('scanProgress').innerHTML = `Scanning emails... <strong>${data.found}</strong> subscriptions found`;
+          document.getElementById('scanStats').innerHTML = `${data.scanned} / ${data.total} emails`;
+          document.getElementById('scanBarFill').style.width = pct + '%';
+        });
+        
+        evtSource.addEventListener('complete', (e) => {
+          evtSource.close();
+          const data = JSON.parse(e.data);
           sources.gmail = true;
-          status.innerHTML = `<div class="scanning" style="border-color:rgba(34,197,94,0.4); background:rgba(34,197,94,0.05)"><div style="font-size:24px">✅</div><div class="text"><strong style="color:var(--good)">Found ${data.subscriptions.length} subscriptions!</strong><br><span>Review and confirm below</span></div></div>`;
-          showRealDetectedSubs(data.subscriptions);
-        } else {
-          status.innerHTML = `<div class="scanning"><div style="font-size:24px">📭</div><div class="text"><strong>No subscriptions found</strong><br><span>Try connecting your bank or add manually</span></div></div>`;
-        }
-        updateSourceCards();
+          updateSourceCards();
+          
+          if (data.subscriptions && data.subscriptions.length > 0) {
+            status.innerHTML = `
+              <div class="scanning" style="border-color:rgba(34,197,94,0.4); background:rgba(34,197,94,0.05)">
+                <div style="font-size:24px">✅</div>
+                <div class="text">
+                  <strong style="color:var(--good)">Found ${data.subscriptions.length} subscriptions!</strong><br>
+                  <span>Review and confirm below</span>
+                </div>
+              </div>
+            `;
+            showRealDetectedSubs(data.subscriptions);
+          } else {
+            status.innerHTML = `
+              <div class="scanning">
+                <div style="font-size:24px">📭</div>
+                <div class="text">
+                  <strong>No subscriptions found</strong><br>
+                  <span>Try connecting your bank or add manually</span>
+                </div>
+              </div>
+            `;
+          }
+        });
+        
+        evtSource.addEventListener('error', (e) => {
+          evtSource.close();
+          // Try to parse error data
+          try {
+            const data = JSON.parse(e.data);
+            status.innerHTML = `<div class="scanning" style="border-color:var(--bad)"><div class="text"><strong style="color:var(--bad)">Scan failed</strong><br><span>${data.error}</span></div></div>`;
+          } catch {
+            status.innerHTML = `<div class="scanning" style="border-color:var(--bad)"><div class="text"><strong style="color:var(--bad)">Connection lost</strong><br><span>Please try again</span></div></div>`;
+          }
+        });
+        
+        evtSource.onerror = () => {
+          evtSource.close();
+          status.innerHTML = `<div class="scanning" style="border-color:var(--bad)"><div class="text"><strong style="color:var(--bad)">Connection error</strong><br><span>Please try again</span></div></div>`;
+        };
+        
       } catch (e) {
         status.innerHTML = `<div class="scanning" style="border-color:var(--bad)"><div class="text"><strong style="color:var(--bad)">Scan failed</strong><br><span>${e.message}</span></div></div>`;
       }

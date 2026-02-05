@@ -214,76 +214,141 @@ app.post('/auth/disconnect', (req, res) => {
 
 // ==================== EMAIL SCANNING ====================
 
-// Scan emails for subscriptions
+// Scan emails for subscriptions (with streaming progress)
 app.get('/api/scan-subscriptions', async (req, res) => {
   if (!userTokens) {
     return res.status(401).json({ error: 'Not authenticated. Please connect Gmail first.' });
   }
   
-  try {
-    oauth2Client.setCredentials(userTokens);
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+  // Check if client wants streaming
+  const wantsStream = req.query.stream === 'true';
+  
+  if (wantsStream) {
+    // Server-Sent Events for real-time progress
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
     
-    // Build search query - broader to catch more
-    const senderQuery = SUBSCRIPTION_SENDERS.map(s => `from:${s}`).join(' OR ');
-    const keywordQuery = SUBSCRIPTION_KEYWORDS.map(k => `subject:${k}`).join(' OR ');
-    const bodyKeywords = ['subscription', 'recurring', 'monthly charge', 'annual', 'renewal', 'billing period'].map(k => k).join(' OR ');
-    const query = `(${senderQuery}) OR (${keywordQuery}) OR (${bodyKeywords}) newer_than:1y`;
+    const send = (event, data) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
     
-    console.log('Gmail search query:', query.substring(0, 200) + '...');
-    
-    // Search emails - get more results
-    const listResponse = await gmail.users.messages.list({
-      userId: 'me',
-      q: query,
-      maxResults: 200
-    });
-    
-    const messages = listResponse.data.messages || [];
-    console.log(`Found ${messages.length} potential subscription emails`);
-    
-    // Parse each email - process more
-    const subscriptions = new Map();
-    
-    for (const msg of messages.slice(0, 100)) { // Process up to 100 emails
-      try {
-        const email = await gmail.users.messages.get({
-          userId: 'me',
-          id: msg.id,
-          format: 'full'
-        });
-        
-        const parsed = parseSubscriptionEmail(email.data);
-        if (parsed) {
-          // Dedupe by service name
-          const key = parsed.name.toLowerCase();
-          if (!subscriptions.has(key) || parsed.confidence > subscriptions.get(key).confidence) {
-            subscriptions.set(key, parsed);
+    try {
+      oauth2Client.setCredentials(userTokens);
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      
+      send('status', { message: 'Searching emails...', phase: 'search' });
+      
+      const senderQuery = SUBSCRIPTION_SENDERS.map(s => `from:${s}`).join(' OR ');
+      const keywordQuery = SUBSCRIPTION_KEYWORDS.map(k => `subject:${k}`).join(' OR ');
+      const bodyKeywords = ['subscription', 'recurring', 'monthly charge', 'annual', 'renewal', 'billing period'].join(' OR ');
+      const query = `(${senderQuery}) OR (${keywordQuery}) OR (${bodyKeywords}) newer_than:3m`;
+      
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me',
+        q: query,
+        maxResults: 200
+      });
+      
+      const messages = listResponse.data.messages || [];
+      const total = Math.min(messages.length, 100);
+      
+      send('status', { message: `Found ${messages.length} emails to scan`, phase: 'scan', total });
+      
+      const subscriptions = new Map();
+      let scanned = 0;
+      let found = 0;
+      
+      for (const msg of messages.slice(0, 100)) {
+        try {
+          const email = await gmail.users.messages.get({
+            userId: 'me',
+            id: msg.id,
+            format: 'full'
+          });
+          
+          scanned++;
+          
+          const parsed = parseSubscriptionEmail(email.data);
+          if (parsed) {
+            const key = parsed.name.toLowerCase();
+            if (!subscriptions.has(key) || parsed.confidence > subscriptions.get(key).confidence) {
+              subscriptions.set(key, parsed);
+              found = subscriptions.size;
+            }
           }
+          
+          // Send progress every 5 emails
+          if (scanned % 5 === 0 || scanned === total) {
+            send('progress', { scanned, total, found });
+          }
+        } catch (err) {
+          scanned++;
         }
-      } catch (err) {
-        console.error(`Failed to parse email ${msg.id}:`, err.message);
       }
+      
+      const results = Array.from(subscriptions.values())
+        .sort((a, b) => b.confidence - a.confidence);
+      
+      send('complete', { success: true, count: results.length, subscriptions: results });
+      res.end();
+      
+    } catch (error) {
+      send('error', { error: error.message || 'Scan failed' });
+      res.end();
     }
     
-    const results = Array.from(subscriptions.values())
-      .sort((a, b) => b.confidence - a.confidence);
-    
-    res.json({
-      success: true,
-      count: results.length,
-      subscriptions: results
-    });
-    
-  } catch (error) {
-    console.error('Scan error:', error);
-    
-    if (error.code === 401) {
-      userTokens = null;
-      return res.status(401).json({ error: 'Session expired. Please reconnect Gmail.' });
+  } else {
+    // Regular JSON response (backwards compatible)
+    try {
+      oauth2Client.setCredentials(userTokens);
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      
+      const senderQuery = SUBSCRIPTION_SENDERS.map(s => `from:${s}`).join(' OR ');
+      const keywordQuery = SUBSCRIPTION_KEYWORDS.map(k => `subject:${k}`).join(' OR ');
+      const bodyKeywords = ['subscription', 'recurring', 'monthly charge', 'annual', 'renewal', 'billing period'].join(' OR ');
+      const query = `(${senderQuery}) OR (${keywordQuery}) OR (${bodyKeywords}) newer_than:3m`;
+      
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me',
+        q: query,
+        maxResults: 200
+      });
+      
+      const messages = listResponse.data.messages || [];
+      const subscriptions = new Map();
+      
+      for (const msg of messages.slice(0, 100)) {
+        try {
+          const email = await gmail.users.messages.get({
+            userId: 'me',
+            id: msg.id,
+            format: 'full'
+          });
+          
+          const parsed = parseSubscriptionEmail(email.data);
+          if (parsed) {
+            const key = parsed.name.toLowerCase();
+            if (!subscriptions.has(key) || parsed.confidence > subscriptions.get(key).confidence) {
+              subscriptions.set(key, parsed);
+            }
+          }
+        } catch (err) {}
+      }
+      
+      const results = Array.from(subscriptions.values())
+        .sort((a, b) => b.confidence - a.confidence);
+      
+      res.json({ success: true, count: results.length, subscriptions: results });
+      
+    } catch (error) {
+      if (error.code === 401) {
+        userTokens = null;
+        return res.status(401).json({ error: 'Session expired. Please reconnect Gmail.' });
+      }
+      res.status(500).json({ error: 'Failed to scan emails' });
     }
-    
-    res.status(500).json({ error: 'Failed to scan emails' });
   }
 });
 
