@@ -66,9 +66,13 @@ const SUSPICIOUS_KEYWORDS = [
   'accounts', 'members', 'newsletter', 'marketing', 'promo', 'deals', 'offers'
 ];
 
-// Hard blacklist - only truly useless detections
+// Hard blacklist - payment processors and useless senders
 const BLACKLIST = [
-  'noreply', 'no-reply', 'donotreply', 'mailer-daemon', 'postmaster'
+  'noreply', 'no-reply', 'donotreply', 'mailer-daemon', 'postmaster',
+  // Payment processors - never subscriptions
+  'paypal', 'klarna', 'stripe.com', 'revolut', 'wise.com', 'n26',
+  'bancontact', 'ideal', 'sofort', 'giropay', 'afterpay', 'affirm',
+  'square', 'venmo', 'cashapp'
 ];
 
 // Known service name mappings (email domain -> display name)
@@ -107,10 +111,14 @@ const SERVICE_NAMES = {
 
 // Keywords that indicate this is actually a billing/receipt email (not just notification)
 const BILLING_KEYWORDS = [
-  'invoice', 'receipt', 'payment received', 'payment confirmed', 'charged',
-  'your payment', 'billing statement', 'subscription renew', 'auto-renew',
-  'thank you for your payment', 'order confirmation', 'purchase',
-  'facture', 'reçu', 'paiement', 'rechnung', 'zahlung'
+  'invoice', 'receipt', 'payment received', 'payment confirmed', 'you were charged',
+  'your payment of', 'billing statement', 'subscription renew', 'auto-renew',
+  'thank you for your payment', 'your subscription', 'payment successful',
+  'successfully charged', 'renewal confirmation', 'billing period',
+  // French
+  'facture', 'reçu de paiement', 'votre abonnement',
+  // German  
+  'rechnung', 'zahlungsbestätigung', 'ihr abonnement'
 ];
 
 // Price extraction patterns
@@ -385,16 +393,47 @@ function parseSubscriptionEmail(email) {
   // Check if suspicious (payment processor, generic name)
   const isSuspicious = SUSPICIOUS_KEYWORDS.some(k => from.includes(k) || subject.toLowerCase().includes(k));
   
-  // Extract body
+  // Extract body - try text/plain first, fall back to HTML
   let body = '';
+  
+  function extractBodyFromParts(parts) {
+    let textContent = '';
+    let htmlContent = '';
+    
+    for (const part of parts || []) {
+      if (part.mimeType === 'text/plain' && part.body?.data) {
+        textContent = Buffer.from(part.body.data, 'base64').toString('utf-8');
+      } else if (part.mimeType === 'text/html' && part.body?.data) {
+        htmlContent = Buffer.from(part.body.data, 'base64').toString('utf-8');
+      } else if (part.parts) {
+        // Nested multipart (e.g., multipart/alternative inside multipart/mixed)
+        const nested = extractBodyFromParts(part.parts);
+        if (nested.text) textContent = nested.text;
+        if (nested.html) htmlContent = nested.html;
+      }
+    }
+    return { text: textContent, html: htmlContent };
+  }
+  
   if (email.payload?.body?.data) {
     body = Buffer.from(email.payload.body.data, 'base64').toString('utf-8');
   } else if (email.payload?.parts) {
-    for (const part of email.payload.parts) {
-      if (part.mimeType === 'text/plain' && part.body?.data) {
-        body = Buffer.from(part.body.data, 'base64').toString('utf-8');
-        break;
-      }
+    const extracted = extractBodyFromParts(email.payload.parts);
+    if (extracted.text) {
+      body = extracted.text;
+    } else if (extracted.html) {
+      // Strip HTML tags to get text, preserve numbers/prices
+      body = extracted.html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n))
+        .replace(/\s+/g, ' ')
+        .trim();
     }
   }
   
@@ -594,16 +633,40 @@ app.get('/api/debug-emails', async (req, res) => {
         const headers = email.data.payload?.headers || [];
         const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
         
-        // Extract body
+        // Extract body - same logic as parseSubscriptionEmail
         let body = '';
+        
+        function extractBodyFromParts(parts) {
+          let textContent = '';
+          let htmlContent = '';
+          for (const part of parts || []) {
+            if (part.mimeType === 'text/plain' && part.body?.data) {
+              textContent = Buffer.from(part.body.data, 'base64').toString('utf-8');
+            } else if (part.mimeType === 'text/html' && part.body?.data) {
+              htmlContent = Buffer.from(part.body.data, 'base64').toString('utf-8');
+            } else if (part.parts) {
+              const nested = extractBodyFromParts(part.parts);
+              if (nested.text) textContent = nested.text;
+              if (nested.html) htmlContent = nested.html;
+            }
+          }
+          return { text: textContent, html: htmlContent };
+        }
+        
         if (email.data.payload?.body?.data) {
           body = Buffer.from(email.data.payload.body.data, 'base64').toString('utf-8');
         } else if (email.data.payload?.parts) {
-          for (const part of email.data.payload.parts) {
-            if (part.mimeType === 'text/plain' && part.body?.data) {
-              body = Buffer.from(part.body.data, 'base64').toString('utf-8');
-              break;
-            }
+          const extracted = extractBodyFromParts(email.data.payload.parts);
+          if (extracted.text) {
+            body = extracted.text;
+          } else if (extracted.html) {
+            body = extracted.html
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
           }
         }
         
