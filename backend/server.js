@@ -105,25 +105,13 @@ const SERVICE_NAMES = {
   'wispr': 'Wispr Flow'
 };
 
-// Default prices for common services (monthly, in EUR)
-const DEFAULT_PRICES = {
-  'Claude Pro': 20,
-  'ChatGPT Plus': 20,
-  'Microsoft 365': 10,
-  'Google One': 3,
-  'GitHub Pro': 4,
-  'Figma': 15,
-  'Notion': 10,
-  'Spotify': 11,
-  'Netflix': 13,
-  'Disney+': 9,
-  'YouTube Premium': 12,
-  'Medium': 5,
-  'Vercel': 20,
-  'Render': 7,
-  'Linear': 10,
-  'Cursor': 20
-};
+// Keywords that indicate this is actually a billing/receipt email (not just notification)
+const BILLING_KEYWORDS = [
+  'invoice', 'receipt', 'payment received', 'payment confirmed', 'charged',
+  'your payment', 'billing statement', 'subscription renew', 'auto-renew',
+  'thank you for your payment', 'order confirmation', 'purchase',
+  'facture', 'reçu', 'paiement', 'rechnung', 'zahlung'
+];
 
 // Price extraction patterns
 const PRICE_PATTERNS = [
@@ -245,22 +233,36 @@ app.get('/api/scan-subscriptions', async (req, res) => {
       const bodyKeywords = ['subscription', 'recurring', 'monthly charge', 'annual', 'renewal', 'billing period'].join(' OR ');
       const query = `(${senderQuery}) OR (${keywordQuery}) OR (${bodyKeywords}) newer_than:3m`;
       
-      const listResponse = await gmail.users.messages.list({
-        userId: 'me',
-        q: query,
-        maxResults: 200
-      });
+      // Fetch all matching emails (paginate if needed)
+      let allMessages = [];
+      let pageToken = null;
       
-      const messages = listResponse.data.messages || [];
-      const total = Math.min(messages.length, 100);
+      do {
+        const listResponse = await gmail.users.messages.list({
+          userId: 'me',
+          q: query,
+          maxResults: 500,
+          pageToken: pageToken
+        });
+        
+        if (listResponse.data.messages) {
+          allMessages = allMessages.concat(listResponse.data.messages);
+        }
+        pageToken = listResponse.data.nextPageToken;
+        
+        send('status', { message: `Found ${allMessages.length} emails...`, phase: 'search' });
+      } while (pageToken && allMessages.length < 2000); // Cap at 2000 to avoid infinite loops
       
-      send('status', { message: `Found ${messages.length} emails to scan`, phase: 'scan', total });
+      const messages = allMessages;
+      const total = messages.length;
+      
+      send('status', { message: `Scanning ${total} emails`, phase: 'scan', total });
       
       const subscriptions = new Map();
       let scanned = 0;
       let found = 0;
       
-      for (const msg of messages.slice(0, 100)) {
+      for (const msg of messages) {
         try {
           const email = await gmail.users.messages.get({
             userId: 'me',
@@ -310,16 +312,28 @@ app.get('/api/scan-subscriptions', async (req, res) => {
       const bodyKeywords = ['subscription', 'recurring', 'monthly charge', 'annual', 'renewal', 'billing period'].join(' OR ');
       const query = `(${senderQuery}) OR (${keywordQuery}) OR (${bodyKeywords}) newer_than:3m`;
       
-      const listResponse = await gmail.users.messages.list({
-        userId: 'me',
-        q: query,
-        maxResults: 200
-      });
+      // Fetch all matching emails (paginate if needed)
+      let allMessages = [];
+      let pageToken = null;
       
-      const messages = listResponse.data.messages || [];
+      do {
+        const listResponse = await gmail.users.messages.list({
+          userId: 'me',
+          q: query,
+          maxResults: 500,
+          pageToken: pageToken
+        });
+        
+        if (listResponse.data.messages) {
+          allMessages = allMessages.concat(listResponse.data.messages);
+        }
+        pageToken = listResponse.data.nextPageToken;
+      } while (pageToken && allMessages.length < 2000);
+      
+      const messages = allMessages;
       const subscriptions = new Map();
       
-      for (const msg of messages.slice(0, 100)) {
+      for (const msg of messages) {
         try {
           const email = await gmail.users.messages.get({
             userId: 'me',
@@ -434,21 +448,25 @@ function parseSubscriptionEmail(email) {
     }
   }
   
+  // Check if this is actually a billing/receipt email
+  const isBillingEmail = BILLING_KEYWORDS.some(k => fullText.includes(k.toLowerCase()));
+  
   // Pick the most likely subscription price (between €2 and €100)
   const likelyPrice = allPrices.find(p => p.value >= 2 && p.value <= 100);
   if (likelyPrice) {
     price = likelyPrice.value;
     currency = likelyPrice.currency;
-  } else if (allPrices.length > 0) {
-    // Fall back to smallest price if no "likely" one
+  } else if (allPrices.length > 0 && isBillingEmail) {
+    // Only use other prices if this is actually a billing email
     allPrices.sort((a, b) => a.value - b.value);
     price = allPrices[0].value;
     currency = allPrices[0].currency;
   }
   
-  // Use default price if known and no price found
-  if (!price && DEFAULT_PRICES[serviceName]) {
-    price = DEFAULT_PRICES[serviceName];
+  // Only keep if: has price from receipt OR is clearly a billing email
+  // No default prices - we want accuracy from actual receipts only
+  if (!price && !isBillingEmail) {
+    return null; // Skip notification emails without prices
   }
   
   // Determine billing cycle
@@ -495,6 +513,7 @@ function parseSubscriptionEmail(email) {
     source: 'email',
     confidence: confidence,
     suspicious: isSuspicious,
+    isBillingEmail: isBillingEmail,
     fromEmail: fromRaw.substring(0, 100),
     emailSubject: subject.substring(0, 120)
   };
