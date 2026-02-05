@@ -752,6 +752,7 @@
       if (sub.signal === 'price_creep' && delta > 0.01) return { cls: 'warn', text: `+${eur(delta)}/mo` };
       if (sub.signal === 'pricey') return { cls: 'warn', text: 'Expensive' };
       if (sub.signal === 'annoying') return { cls: 'bad', text: 'Low value' };
+      if (sub.signal === 'review') return { cls: 'warn', text: '⚠️ Verify' };
       return { cls: 'good', text: 'OK' };
     }
 
@@ -968,54 +969,135 @@
     function showRealDetectedSubs(detected) {
       const container = document.getElementById('detectedSubs');
       container.style.display = 'block';
+      
+      // Sort: confident first, then suspicious
+      const sorted = [...detected].sort((a, b) => {
+        if (a.suspicious !== b.suspicious) return a.suspicious ? 1 : -1;
+        return (b.confidence || 0) - (a.confidence || 0);
+      });
+      
+      const confidentCount = sorted.filter(s => !s.suspicious).length;
+      const suspiciousCount = sorted.filter(s => s.suspicious).length;
+      
       container.innerHTML = `
         <div class="detected-list">
           <h4 style="margin-bottom:10px">📋 Detected subscriptions</h4>
-          ${detected.map((s, i) => `
-            <div class="detected-item new" data-idx="${i}">
-              <div class="info">
-                <div class="icon">📧</div>
-                <div class="details">
-                  <h5>${escapeHtml(s.name)}</h5>
-                  <p>${s.price ? eur(s.price) + '/mo' : 'Price unknown'}</p>
+          <p style="font-size:12px; color:var(--muted); margin-bottom:12px">
+            ✅ ${confidentCount} confident • ⚠️ ${suspiciousCount} need review
+          </p>
+          ${sorted.map((s, i) => `
+            <div class="detected-item ${s.suspicious ? '' : 'new'}" data-idx="${i}" style="${s.suspicious ? 'border-color:rgba(245,158,11,0.4); background:rgba(245,158,11,0.05)' : ''}">
+              <div class="info" style="flex:1; min-width:0">
+                <div class="icon">${s.suspicious ? '⚠️' : '📧'}</div>
+                <div class="details" style="min-width:0">
+                  <h5 style="display:flex; align-items:center; gap:6px">
+                    ${escapeHtml(s.name)}
+                    ${s.suspicious ? '<span style="font-size:10px; color:var(--warn); font-weight:normal">(verify)</span>' : ''}
+                    <span class="chip ${s.confidence >= 50 ? 'good' : s.confidence >= 30 ? 'warn' : 'bad'}" style="font-size:10px">${s.confidence || 0}%</span>
+                  </h5>
+                  <p style="margin:2px 0">${s.price ? s.currency + s.price + '/' + (s.cycle === 'yearly' ? 'yr' : 'mo') : 'Price unknown'} ${s.category ? '• ' + s.category : ''}</p>
+                  <p style="font-size:11px; color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:400px" title="${escapeHtml(s.fromEmail || '')}">
+                    📨 ${escapeHtml((s.fromEmail || '').substring(0, 50))}
+                  </p>
+                  <p style="font-size:11px; color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:400px" title="${escapeHtml(s.emailSubject || '')}">
+                    📝 ${escapeHtml((s.emailSubject || '').substring(0, 60))}
+                  </p>
                 </div>
               </div>
-              <div class="actions">
+              <div class="actions" style="flex-shrink:0">
                 <button class="mini" data-add="${i}">✓ Add</button>
                 <button class="mini" data-skip="${i}">Skip</button>
               </div>
             </div>
           `).join('')}
-          <div style="margin-top:12px; text-align:center">
-            <button class="btn primary" id="btnAddAllReal">Add all (${detected.length})</button>
+          <div style="margin-top:12px; text-align:center; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
+            <button class="btn primary" id="btnAddConfident">Add confident (${confidentCount})</button>
+            <button class="btn" id="btnAddAllReal">Add all (${sorted.length})</button>
           </div>
         </div>
       `;
 
       container.querySelectorAll('[data-add]').forEach(btn => {
         btn.onclick = () => {
-          const s = detected[parseInt(btn.dataset.add)];
-          subs.push({ id: crypto.randomUUID(), name: s.name, category: s.category || 'Other', monthly: s.price || 9.99, renewal: getNextMonth(), lastMonthly: s.price || 9.99, signal: 'ok', source: 'gmail', notes: 'From Gmail' });
+          const s = sorted[parseInt(btn.dataset.add)];
+          const signal = s.suspicious ? 'review' : (s.confidence >= 50 ? 'ok' : 'review');
+          subs.push({ 
+            id: crypto.randomUUID(), 
+            name: s.name, 
+            category: s.category || 'Other', 
+            monthly: s.price || 9.99, 
+            renewal: getNextMonth(), 
+            lastMonthly: s.price || 9.99, 
+            signal: signal, 
+            source: 'gmail', 
+            notes: s.suspicious ? `⚠️ Verify: ${s.emailSubject?.substring(0, 50) || 'From Gmail'}` : (s.emailSubject?.substring(0, 50) || 'From Gmail')
+          });
           btn.closest('.detected-item').style.opacity = '0.4';
           btn.textContent = 'Added';
+          btn.disabled = true;
           saveToStorage();
           renderAll();
+          toastShow('Added', `${s.name} added to your list.`);
         };
       });
 
       container.querySelectorAll('[data-skip]').forEach(btn => {
-        btn.onclick = () => btn.closest('.detected-item').remove();
+        btn.onclick = () => {
+          btn.closest('.detected-item').style.opacity = '0.3';
+          btn.textContent = 'Skipped';
+        };
       });
 
-      document.getElementById('btnAddAllReal')?.addEventListener('click', () => {
-        detected.forEach(s => {
+      // Add only confident subscriptions
+      document.getElementById('btnAddConfident')?.addEventListener('click', () => {
+        const confident = sorted.filter(s => !s.suspicious);
+        confident.forEach(s => {
           if (!subs.find(x => x.name.toLowerCase() === s.name.toLowerCase())) {
-            subs.push({ id: crypto.randomUUID(), name: s.name, category: s.category || 'Other', monthly: s.price || 9.99, renewal: getNextMonth(), lastMonthly: s.price || 9.99, signal: 'ok', source: 'gmail', notes: 'From Gmail' });
+            subs.push({ 
+              id: crypto.randomUUID(), 
+              name: s.name, 
+              category: s.category || 'Other', 
+              monthly: s.price || 9.99, 
+              renewal: getNextMonth(), 
+              lastMonthly: s.price || 9.99, 
+              signal: 'ok', 
+              source: 'gmail', 
+              notes: s.emailSubject?.substring(0, 50) || 'From Gmail'
+            });
+          }
+        });
+        saveToStorage();
+        renderAll();
+        toastShow('Added', `${confident.length} confident subscriptions added.`);
+        // Mark confident items as added
+        container.querySelectorAll('.detected-item.new').forEach(el => {
+          el.style.opacity = '0.4';
+          el.querySelector('[data-add]').textContent = 'Added';
+        });
+      });
+
+      // Add all subscriptions
+      document.getElementById('btnAddAllReal')?.addEventListener('click', () => {
+        sorted.forEach(s => {
+          if (!subs.find(x => x.name.toLowerCase() === s.name.toLowerCase())) {
+            const signal = s.suspicious ? 'review' : 'ok';
+            subs.push({ 
+              id: crypto.randomUUID(), 
+              name: s.name, 
+              category: s.category || 'Other', 
+              monthly: s.price || 9.99, 
+              renewal: getNextMonth(), 
+              lastMonthly: s.price || 9.99, 
+              signal: signal, 
+              source: 'gmail', 
+              notes: s.suspicious ? `⚠️ ${s.emailSubject?.substring(0, 50) || 'Verify'}` : (s.emailSubject?.substring(0, 50) || 'From Gmail')
+            });
           }
         });
         container.innerHTML = '<p style="color:var(--good); text-align:center; padding:20px">✅ All added!</p>';
         saveToStorage();
         renderAll();
+        toastShow('Added', `${sorted.length} subscriptions added.`);
       });
     }
 

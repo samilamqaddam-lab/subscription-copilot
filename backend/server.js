@@ -44,12 +44,16 @@ const SUBSCRIPTION_SENDERS = [
   'wispr', 'cursor', 'linear', 'raycast', 'setapp', 'cleanshot'
 ];
 
-// Blacklist - payment processors and non-subscription services
-const BLACKLIST = [
+// Suspicious keywords - flag but don't block
+const SUSPICIOUS_KEYWORDS = [
   'paypal', 'klarna', 'stripe', 'revolut', 'n26', 'wise', 'transferwise',
   'google pay', 'apple pay', 'venmo', 'cash app', 'square',
-  'accounts', 'members', 'support', 'noreply', 'no-reply', 'info',
-  'newsletter', 'marketing', 'promo', 'deals', 'offers'
+  'accounts', 'members', 'newsletter', 'marketing', 'promo', 'deals', 'offers'
+];
+
+// Hard blacklist - only truly useless detections
+const BLACKLIST = [
+  'noreply', 'no-reply', 'donotreply', 'mailer-daemon', 'postmaster'
 ];
 
 // Known service name mappings (email domain -> display name)
@@ -265,14 +269,18 @@ function parseSubscriptionEmail(email) {
   const headers = email.payload?.headers || [];
   const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
   
-  const from = getHeader('From').toLowerCase();
+  const fromRaw = getHeader('From');
+  const from = fromRaw.toLowerCase();
   const subject = getHeader('Subject');
   const date = getHeader('Date');
   
-  // Check blacklist first
-  if (BLACKLIST.some(b => from.includes(b) || subject.toLowerCase().includes(b))) {
+  // Hard blacklist - skip completely
+  if (BLACKLIST.some(b => from.includes(b))) {
     return null;
   }
+  
+  // Check if suspicious (payment processor, generic name)
+  const isSuspicious = SUSPICIOUS_KEYWORDS.some(k => from.includes(k) || subject.toLowerCase().includes(k));
   
   // Extract body
   let body = '';
@@ -380,6 +388,11 @@ function parseSubscriptionEmail(email) {
     category = 'Cloud Storage';
   }
   
+  // Reduce confidence for suspicious items
+  if (isSuspicious) {
+    confidence = Math.max(10, confidence - 30);
+  }
+  
   return {
     name: serviceName,
     price: price,
@@ -389,7 +402,9 @@ function parseSubscriptionEmail(email) {
     lastSeen: date,
     source: 'email',
     confidence: confidence,
-    emailSubject: subject.substring(0, 100)
+    suspicious: isSuspicious,
+    fromEmail: fromRaw.substring(0, 100),
+    emailSubject: subject.substring(0, 120)
   };
 }
 
