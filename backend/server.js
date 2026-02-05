@@ -553,6 +553,117 @@ function extractServiceName(from) {
   return 'Unknown';
 }
 
+// ==================== DEBUG ENDPOINT ====================
+
+// Debug: show raw emails for analysis
+app.get('/api/debug-emails', async (req, res) => {
+  if (!userTokens) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  try {
+    oauth2Client.setCredentials(userTokens);
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    
+    // Get limit from query param (default 20)
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const service = req.query.service?.toLowerCase(); // Filter by service name
+    
+    const senderQuery = SUBSCRIPTION_SENDERS.map(s => `from:${s}`).join(' OR ');
+    const query = service 
+      ? `from:${service} newer_than:6m`
+      : `(${senderQuery}) newer_than:3m`;
+    
+    const listResponse = await gmail.users.messages.list({
+      userId: 'me',
+      q: query,
+      maxResults: limit
+    });
+    
+    const messages = listResponse.data.messages || [];
+    const debugData = [];
+    
+    for (const msg of messages) {
+      try {
+        const email = await gmail.users.messages.get({
+          userId: 'me',
+          id: msg.id,
+          format: 'full'
+        });
+        
+        const headers = email.data.payload?.headers || [];
+        const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+        
+        // Extract body
+        let body = '';
+        if (email.data.payload?.body?.data) {
+          body = Buffer.from(email.data.payload.body.data, 'base64').toString('utf-8');
+        } else if (email.data.payload?.parts) {
+          for (const part of email.data.payload.parts) {
+            if (part.mimeType === 'text/plain' && part.body?.data) {
+              body = Buffer.from(part.body.data, 'base64').toString('utf-8');
+              break;
+            }
+          }
+        }
+        
+        // Find all prices in the email
+        const fullText = `${getHeader('Subject')} ${body}`;
+        const foundPrices = [];
+        for (const pattern of PRICE_PATTERNS) {
+          let match;
+          const regex = new RegExp(pattern.source, 'gi');
+          while ((match = regex.exec(fullText)) !== null) {
+            foundPrices.push(match[0]);
+          }
+        }
+        
+        // Check for billing keywords
+        const lowerText = fullText.toLowerCase();
+        const billingKeywordsFound = BILLING_KEYWORDS.filter(k => lowerText.includes(k.toLowerCase()));
+        
+        // Check for cycle keywords
+        const cycleKeywords = [];
+        if (/annual|yearly|year|\/year|per year/i.test(fullText)) cycleKeywords.push('yearly');
+        if (/monthly|month|\/month|per month|\/mo\b/i.test(fullText)) cycleKeywords.push('monthly');
+        
+        // Parse it and see what we get
+        const parsed = parseSubscriptionEmail(email.data);
+        
+        debugData.push({
+          id: msg.id,
+          from: getHeader('From'),
+          subject: getHeader('Subject'),
+          date: getHeader('Date'),
+          bodyPreview: body.substring(0, 500).replace(/\s+/g, ' '),
+          foundPrices,
+          billingKeywordsFound,
+          cycleKeywords,
+          parsed: parsed ? {
+            name: parsed.name,
+            price: parsed.price,
+            currency: parsed.currency,
+            cycle: parsed.cycle,
+            confidence: parsed.confidence,
+            isBillingEmail: parsed.isBillingEmail
+          } : null
+        });
+      } catch (err) {
+        console.error('Error fetching email:', err.message);
+      }
+    }
+    
+    res.json({ 
+      count: debugData.length, 
+      query,
+      emails: debugData 
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== SERVER START ====================
 
 app.get('/health', (req, res) => {
