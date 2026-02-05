@@ -32,16 +32,31 @@ const oauth2Client = new google.auth.OAuth2(
 // Store tokens in memory (use Redis/DB in production)
 let userTokens = null;
 
-// Known subscription services (real subscriptions only)
+// Known subscription services - broad matching
 const SUBSCRIPTION_SENDERS = [
-  'netflix', 'spotify', 'apple', 'amazon prime', 'disney', 'hbo', 'youtube',
-  'adobe', 'microsoft', 'dropbox', 'notion', 'figma', 'slack',
-  'zoom', 'openai', 'anthropic', 'github', 'vercel', 'heroku',
-  'cloudflare', 'digitalocean', 'render',
-  'headspace', 'calm', 'duolingo', 'strava', 'peloton', 'nytimes',
-  'medium', 'substack', 'patreon', 'twitch', 'crunchyroll', 'audible',
-  'canva', 'grammarly', 'todoist', 'evernote', 'lastpass', '1password',
-  'wispr', 'cursor', 'linear', 'raycast', 'setapp', 'cleanshot'
+  // Streaming
+  'netflix', 'spotify', 'apple', 'amazon', 'disney', 'hbo', 'youtube', 'dazn',
+  'crunchyroll', 'audible', 'twitch', 'primevideo', 'hulu', 'paramount',
+  // Software/AI
+  'adobe', 'microsoft', 'google', 'dropbox', 'notion', 'figma', 'slack', 'miro',
+  'zoom', 'openai', 'anthropic', 'cursor', 'copilot', 'midjourney', 'runway',
+  // Dev tools
+  'github', 'gitlab', 'vercel', 'heroku', 'render', 'railway', 'netlify',
+  'cloudflare', 'digitalocean', 'aws', 'linode', 'vultr', 'hetzner',
+  // Productivity
+  'todoist', 'evernote', 'grammarly', 'canva', 'linear', 'asana', 'monday',
+  'airtable', 'coda', 'clickup', 'basecamp', 'trello',
+  // Security/Utils
+  'lastpass', '1password', 'bitwarden', 'nordvpn', 'expressvpn', 'proton',
+  // Media/News
+  'medium', 'substack', 'patreon', 'nytimes', 'economist', 'wsj', 'bloomberg',
+  // Health/Fitness
+  'headspace', 'calm', 'duolingo', 'strava', 'peloton', 'fitbit', 'myfitnesspal',
+  // Other tools
+  'wispr', 'raycast', 'setapp', 'cleanshot', 'istatmenus', 'bartender',
+  'superhuman', 'hey', 'fastmail', 'mailchimp', 'convertkit', 'beehiiv',
+  // Payment (for detection, will be marked suspicious)
+  'paypal', 'stripe', 'klarna', 'revolut', 'wise', 'n26'
 ];
 
 // Suspicious keywords - flag but don't block
@@ -123,10 +138,16 @@ const PRICE_PATTERNS = [
 
 // Keywords for subscription emails
 const SUBSCRIPTION_KEYWORDS = [
-  'invoice', 'receipt', 'payment', 'subscription', 'billing',
-  'facture', 'reçu', 'paiement', 'abonnement',
-  'rechnung', 'zahlung', 'abo',
-  'monthly', 'annual', 'yearly', 'renew'
+  // English
+  'invoice', 'receipt', 'payment', 'subscription', 'billing', 'charged',
+  'monthly', 'annual', 'yearly', 'renew', 'renewal', 'recurring',
+  'membership', 'premium', 'pro plan', 'upgrade', 'thank you for your order',
+  // French
+  'facture', 'reçu', 'paiement', 'abonnement', 'mensuel',
+  // German
+  'rechnung', 'zahlung', 'abo', 'monatlich',
+  // Spanish
+  'suscripción', 'pago', 'recibo'
 ];
 
 // ==================== AUTH ROUTES ====================
@@ -203,25 +224,28 @@ app.get('/api/scan-subscriptions', async (req, res) => {
     oauth2Client.setCredentials(userTokens);
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     
-    // Build search query
+    // Build search query - broader to catch more
     const senderQuery = SUBSCRIPTION_SENDERS.map(s => `from:${s}`).join(' OR ');
     const keywordQuery = SUBSCRIPTION_KEYWORDS.map(k => `subject:${k}`).join(' OR ');
-    const query = `(${senderQuery}) OR (${keywordQuery}) newer_than:1y`;
+    const bodyKeywords = ['subscription', 'recurring', 'monthly charge', 'annual', 'renewal', 'billing period'].map(k => k).join(' OR ');
+    const query = `(${senderQuery}) OR (${keywordQuery}) OR (${bodyKeywords}) newer_than:1y`;
     
-    // Search emails
+    console.log('Gmail search query:', query.substring(0, 200) + '...');
+    
+    // Search emails - get more results
     const listResponse = await gmail.users.messages.list({
       userId: 'me',
       q: query,
-      maxResults: 100
+      maxResults: 200
     });
     
     const messages = listResponse.data.messages || [];
     console.log(`Found ${messages.length} potential subscription emails`);
     
-    // Parse each email
+    // Parse each email - process more
     const subscriptions = new Map();
     
-    for (const msg of messages.slice(0, 50)) { // Limit to 50 for speed
+    for (const msg of messages.slice(0, 100)) { // Process up to 100 emails
       try {
         const email = await gmail.users.messages.get({
           userId: 'me',
@@ -299,11 +323,7 @@ function parseSubscriptionEmail(email) {
   
   // Check if it's a subscription email
   const matchedSender = SUBSCRIPTION_SENDERS.find(s => from.includes(s));
-  const hasKeyword = SUBSCRIPTION_KEYWORDS.some(k => fullText.includes(k));
-  
-  if (!matchedSender && !hasKeyword) {
-    return null;
-  }
+  const hasKeyword = SUBSCRIPTION_KEYWORDS.some(k => fullText.includes(k.toLowerCase()));
   
   // Extract service name using mapping or from email
   let serviceName = null;
@@ -312,11 +332,18 @@ function parseSubscriptionEmail(email) {
   } else if (matchedSender) {
     serviceName = matchedSender.charAt(0).toUpperCase() + matchedSender.slice(1);
   } else {
-    serviceName = extractServiceName(from);
+    serviceName = extractServiceName(fromRaw);
   }
   
-  // Skip generic names
-  if (['Unknown', 'Info', 'Support', 'Noreply', 'No-reply'].includes(serviceName)) {
+  // Skip truly generic names
+  const genericNames = ['unknown', 'info', 'support', 'noreply', 'no-reply', 'team', 'hello', 'contact', 'admin'];
+  if (genericNames.includes(serviceName.toLowerCase())) {
+    return null;
+  }
+  
+  // Need either a known sender, a keyword, or a recognizable service name
+  const hasRecognizableName = serviceName && serviceName.length > 2 && !genericNames.includes(serviceName.toLowerCase());
+  if (!matchedSender && !hasKeyword && !hasRecognizableName) {
     return null;
   }
   
