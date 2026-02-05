@@ -32,16 +32,79 @@ const oauth2Client = new google.auth.OAuth2(
 // Store tokens in memory (use Redis/DB in production)
 let userTokens = null;
 
-// Known subscription senders
+// Known subscription services (real subscriptions only)
 const SUBSCRIPTION_SENDERS = [
-  'netflix', 'spotify', 'apple', 'amazon', 'disney', 'hbo', 'youtube',
-  'adobe', 'microsoft', 'google', 'dropbox', 'notion', 'figma', 'slack',
-  'zoom', 'openai', 'anthropic', 'github', 'vercel', 'heroku', 'aws',
-  'cloudflare', 'digitalocean', 'stripe', 'paypal', 'revolut', 'n26',
+  'netflix', 'spotify', 'apple', 'amazon prime', 'disney', 'hbo', 'youtube',
+  'adobe', 'microsoft', 'dropbox', 'notion', 'figma', 'slack',
+  'zoom', 'openai', 'anthropic', 'github', 'vercel', 'heroku',
+  'cloudflare', 'digitalocean', 'render',
   'headspace', 'calm', 'duolingo', 'strava', 'peloton', 'nytimes',
   'medium', 'substack', 'patreon', 'twitch', 'crunchyroll', 'audible',
-  'canva', 'grammarly', 'todoist', 'evernote', 'lastpass', '1password'
+  'canva', 'grammarly', 'todoist', 'evernote', 'lastpass', '1password',
+  'wispr', 'cursor', 'linear', 'raycast', 'setapp', 'cleanshot'
 ];
+
+// Blacklist - payment processors and non-subscription services
+const BLACKLIST = [
+  'paypal', 'klarna', 'stripe', 'revolut', 'n26', 'wise', 'transferwise',
+  'google pay', 'apple pay', 'venmo', 'cash app', 'square',
+  'accounts', 'members', 'support', 'noreply', 'no-reply', 'info',
+  'newsletter', 'marketing', 'promo', 'deals', 'offers'
+];
+
+// Known service name mappings (email domain -> display name)
+const SERVICE_NAMES = {
+  'anthropic': 'Claude Pro',
+  'openai': 'ChatGPT Plus',
+  'microsoft': 'Microsoft 365',
+  'google': 'Google One',
+  'apple': 'Apple One',
+  'amazon': 'Amazon Prime',
+  'adobe': 'Adobe Creative Cloud',
+  'github': 'GitHub Pro',
+  'figma': 'Figma',
+  'notion': 'Notion',
+  'slack': 'Slack',
+  'zoom': 'Zoom',
+  'dropbox': 'Dropbox',
+  'spotify': 'Spotify',
+  'netflix': 'Netflix',
+  'disney': 'Disney+',
+  'hbo': 'HBO Max',
+  'youtube': 'YouTube Premium',
+  'medium': 'Medium',
+  'substack': 'Substack',
+  'vercel': 'Vercel',
+  'render': 'Render',
+  'heroku': 'Heroku',
+  'digitalocean': 'DigitalOcean',
+  'cloudflare': 'Cloudflare',
+  'linear': 'Linear',
+  'raycast': 'Raycast',
+  'setapp': 'Setapp',
+  'cursor': 'Cursor',
+  'wispr': 'Wispr Flow'
+};
+
+// Default prices for common services (monthly, in EUR)
+const DEFAULT_PRICES = {
+  'Claude Pro': 20,
+  'ChatGPT Plus': 20,
+  'Microsoft 365': 10,
+  'Google One': 3,
+  'GitHub Pro': 4,
+  'Figma': 15,
+  'Notion': 10,
+  'Spotify': 11,
+  'Netflix': 13,
+  'Disney+': 9,
+  'YouTube Premium': 12,
+  'Medium': 5,
+  'Vercel': 20,
+  'Render': 7,
+  'Linear': 10,
+  'Cursor': 20
+};
 
 // Price extraction patterns
 const PRICE_PATTERNS = [
@@ -202,9 +265,14 @@ function parseSubscriptionEmail(email) {
   const headers = email.payload?.headers || [];
   const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
   
-  const from = getHeader('From');
+  const from = getHeader('From').toLowerCase();
   const subject = getHeader('Subject');
   const date = getHeader('Date');
+  
+  // Check blacklist first
+  if (BLACKLIST.some(b => from.includes(b) || subject.toLowerCase().includes(b))) {
+    return null;
+  }
   
   // Extract body
   let body = '';
@@ -222,33 +290,65 @@ function parseSubscriptionEmail(email) {
   const fullText = `${from} ${subject} ${body}`.toLowerCase();
   
   // Check if it's a subscription email
-  const matchedSender = SUBSCRIPTION_SENDERS.find(s => from.toLowerCase().includes(s));
+  const matchedSender = SUBSCRIPTION_SENDERS.find(s => from.includes(s));
   const hasKeyword = SUBSCRIPTION_KEYWORDS.some(k => fullText.includes(k));
   
   if (!matchedSender && !hasKeyword) {
     return null;
   }
   
-  // Extract service name
-  let serviceName = matchedSender || extractServiceName(from);
-  serviceName = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
+  // Extract service name using mapping or from email
+  let serviceName = null;
+  if (matchedSender && SERVICE_NAMES[matchedSender]) {
+    serviceName = SERVICE_NAMES[matchedSender];
+  } else if (matchedSender) {
+    serviceName = matchedSender.charAt(0).toUpperCase() + matchedSender.slice(1);
+  } else {
+    serviceName = extractServiceName(from);
+  }
   
-  // Extract price
+  // Skip generic names
+  if (['Unknown', 'Info', 'Support', 'Noreply', 'No-reply'].includes(serviceName)) {
+    return null;
+  }
+  
+  // Extract price - look for subscription-like amounts (< €100/mo typically)
   let price = null;
   let currency = '€';
   
+  // Find all prices and pick the most reasonable one
+  const allPrices = [];
   for (const pattern of PRICE_PATTERNS) {
-    const match = fullText.match(pattern);
-    if (match) {
+    let match;
+    const regex = new RegExp(pattern.source, 'gi');
+    while ((match = regex.exec(fullText)) !== null) {
       const priceStr = match[0].replace(/[€$£]|EUR|USD|GBP/gi, '').trim();
-      price = parseFloat(priceStr.replace(',', '.'));
-      
-      if (match[0].includes('$') || match[0].includes('USD')) currency = '$';
-      else if (match[0].includes('£') || match[0].includes('GBP')) currency = '£';
-      else currency = '€';
-      
-      break;
+      const p = parseFloat(priceStr.replace(',', '.'));
+      if (p > 0 && p < 500) { // Filter out unreasonable prices
+        allPrices.push({
+          value: p,
+          currency: match[0].includes('$') || match[0].includes('USD') ? '$' : 
+                    match[0].includes('£') || match[0].includes('GBP') ? '£' : '€'
+        });
+      }
     }
+  }
+  
+  // Pick the most likely subscription price (between €2 and €100)
+  const likelyPrice = allPrices.find(p => p.value >= 2 && p.value <= 100);
+  if (likelyPrice) {
+    price = likelyPrice.value;
+    currency = likelyPrice.currency;
+  } else if (allPrices.length > 0) {
+    // Fall back to smallest price if no "likely" one
+    allPrices.sort((a, b) => a.value - b.value);
+    price = allPrices[0].value;
+    currency = allPrices[0].currency;
+  }
+  
+  // Use default price if known and no price found
+  if (!price && DEFAULT_PRICES[serviceName]) {
+    price = DEFAULT_PRICES[serviceName];
   }
   
   // Determine billing cycle
@@ -262,13 +362,30 @@ function parseSubscriptionEmail(email) {
   if (matchedSender) confidence += 40;
   if (hasKeyword) confidence += 30;
   if (price) confidence += 20;
-  if (/invoice|receipt|facture|rechnung/i.test(subject)) confidence += 10;
+  if (/invoice|receipt|facture|rechnung|subscription|abonnement/i.test(subject)) confidence += 10;
+  
+  // Determine category
+  let category = 'Other';
+  if (/netflix|spotify|disney|hbo|youtube|prime|crunchyroll|audible|twitch/i.test(serviceName)) {
+    category = 'Entertainment';
+  } else if (/claude|chatgpt|openai|anthropic|cursor|copilot/i.test(serviceName)) {
+    category = 'AI Tools';
+  } else if (/github|vercel|render|heroku|digitalocean|cloudflare|aws/i.test(serviceName)) {
+    category = 'Developer Tools';
+  } else if (/notion|slack|linear|todoist|evernote|grammarly/i.test(serviceName)) {
+    category = 'Productivity';
+  } else if (/adobe|figma|canva/i.test(serviceName)) {
+    category = 'Design';
+  } else if (/dropbox|google one|icloud/i.test(serviceName)) {
+    category = 'Cloud Storage';
+  }
   
   return {
     name: serviceName,
     price: price,
     currency: currency,
     cycle: cycle,
+    category: category,
     lastSeen: date,
     source: 'email',
     confidence: confidence,
@@ -277,16 +394,34 @@ function parseSubscriptionEmail(email) {
 }
 
 function extractServiceName(from) {
-  // Try to extract domain name
+  // Try to extract domain name and map to known service
   const emailMatch = from.match(/@([a-z0-9-]+)\./i);
   if (emailMatch) {
-    return emailMatch[1];
+    const domain = emailMatch[1].toLowerCase();
+    
+    // Check if it maps to a known service
+    if (SERVICE_NAMES[domain]) {
+      return SERVICE_NAMES[domain];
+    }
+    
+    // Skip generic domains
+    if (['mail', 'email', 'smtp', 'noreply', 'no-reply', 'support', 'info', 'accounts', 'members'].includes(domain)) {
+      return 'Unknown';
+    }
+    
+    // Capitalize nicely
+    return domain.charAt(0).toUpperCase() + domain.slice(1);
   }
   
-  // Try to extract name before email
-  const nameMatch = from.match(/^([^<]+)/);
+  // Try to extract name before email (e.g., "Netflix <noreply@netflix.com>")
+  const nameMatch = from.match(/^"?([^"<@]+)"?\s*</);
   if (nameMatch) {
-    return nameMatch[1].trim().split(' ')[0];
+    const name = nameMatch[1].trim();
+    // Skip generic names
+    if (['noreply', 'no-reply', 'support', 'info', 'accounts', 'team', 'billing'].includes(name.toLowerCase())) {
+      return 'Unknown';
+    }
+    return name;
   }
   
   return 'Unknown';
