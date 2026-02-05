@@ -1,1041 +1,1086 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscription Copilot Pro</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subscription Copilot — Track & Optimize</title>
+  <style>
+    :root{
+      --bg:#0a0a0f;
+      --surface:#12121a;
+      --surface2:#161622;
+      --border:#2a2a3a;
+      --text:#e4e4e7;
+      --muted:#9ca3af;
+      --muted2:#71717a;
+      --accent:#6366f1;
+      --accent2:#a855f7;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+    }
 
-        :root {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #1a1a1a;
-            --bg-tertiary: #2a2a2a;
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0a0;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-        }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+      background:radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.18), transparent 60%),
+                 radial-gradient(1200px 600px at 90% 0%, rgba(168,85,247,0.16), transparent 60%),
+                 var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      line-height:1.4;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-        }
+    a{color:inherit}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
+    .header{
+      position:sticky; top:0; z-index:50;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:14px 18px;
+      background:rgba(18,18,26,0.85);
+      backdrop-filter: blur(10px);
+      border-bottom:1px solid var(--border);
+      flex-wrap:wrap;
+      gap:12px;
+    }
+    .brand{display:flex; gap:10px; align-items:center;}
+    .logo{
+      width:34px;height:34px;border-radius:10px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      box-shadow:0 12px 30px rgba(99,102,241,0.25);
+    }
+    .brand h1{font-size:14px; letter-spacing:0.2px}
+    .brand p{font-size:12px;color:var(--muted2)}
 
-        header {
-            margin-bottom: 3rem;
-        }
+    .tabs{display:flex; gap:8px; align-items:center;}
+    .tab{
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--muted);
+      cursor:pointer;
+      font-size:13px;
+      transition:all .15s ease;
+    }
+    .tab:hover{border-color:rgba(99,102,241,0.7); color:var(--text)}
+    .tab.active{background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.6); color:var(--text)}
 
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, var(--accent), var(--success));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    .header-actions{display:flex; gap:10px; align-items:center;}
 
-        .subtitle {
-            color: var(--text-secondary);
-        }
+    .btn{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:var(--surface2);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:600;
+      font-size:13px;
+      transition:transform .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .btn:hover{border-color:rgba(99,102,241,0.7); transform:translateY(-1px)}
+    .btn.primary{background:linear-gradient(135deg, rgba(99,102,241,1), rgba(168,85,247,1)); border-color:transparent}
+    .btn.primary:hover{filter:brightness(1.05)}
+    .btn.ghost{background:transparent}
+    .btn.success{background:rgba(34,197,94,0.15); border-color:rgba(34,197,94,0.4); color:var(--good)}
+    .btn.danger{background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.4); color:var(--bad)}
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
+    .container{max-width:1200px;margin:0 auto;padding:18px}
+    
+    .hero{
+      padding:18px;
+      border:1px solid var(--border);
+      border-radius:16px;
+      background:rgba(18,18,26,0.7);
+      display:flex; justify-content:space-between; gap:16px; align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .hero h2{font-size:22px; line-height:1.15; margin-bottom:6px}
+    .hero p{color:var(--muted); max-width:680px}
 
-        .stat-card {
-            background: var(--bg-secondary);
-            padding: 1.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--bg-tertiary);
-        }
+    .kpis{display:flex; gap:12px; flex-wrap:wrap; justify-content:flex-end}
+    .kpi{
+      min-width:140px;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(22,22,34,0.75);
+    }
+    .kpi .label{color:var(--muted2); font-size:12px}
+    .kpi .value{font-size:20px; font-weight:800; margin-top:2px}
+    .kpi .sub{font-size:12px; color:var(--muted); margin-top:2px}
 
-        .stat-label {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            margin-bottom: 0.5rem;
-        }
+    .grid{display:grid; grid-template-columns: 1.6fr 1fr; gap:14px; margin-top:14px}
+    @media (max-width: 920px){ .grid{grid-template-columns:1fr} }
 
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 600;
-        }
+    .panel{
+      border:1px solid var(--border);
+      background:rgba(18,18,26,0.7);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    .panel-header{
+      padding:12px 14px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid var(--border);
+      background:rgba(18,18,26,0.9);
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .panel-header h3{font-size:13px; letter-spacing:0.2px}
+    .panel-header .meta{color:var(--muted2); font-size:12px}
+    .panel-body{padding:12px 14px}
 
-        .stat-trend {
-            font-size: 0.875rem;
-            margin-top: 0.5rem;
-        }
+    .search{display:flex; gap:10px; align-items:center}
+    .input{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(22,22,34,0.65);
+      color:var(--text);
+      outline:none;
+    }
+    .input:focus{border-color:rgba(99,102,241,0.8)}
 
-        .trend-up { color: var(--danger); }
-        .trend-down { color: var(--success); }
+    .table{width:100%; border-collapse:collapse;}
+    .table th{
+      text-align:left;
+      font-size:12px;
+      color:var(--muted2);
+      padding:10px 8px;
+      border-bottom:1px solid rgba(42,42,58,0.7);
+    }
+    .table td{
+      padding:12px 8px;
+      border-bottom:1px solid rgba(42,42,58,0.45);
+      vertical-align:top;
+    }
+    .row-title{font-weight:700}
+    .row-sub{color:var(--muted2); font-size:12px; margin-top:2px}
 
-        .btn {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.2s;
-            font-family: inherit;
-        }
+    .chip{
+      display:inline-flex; align-items:center;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:12px;
+      background:rgba(15,23,42,0.7);
+      border:1px solid rgba(42,42,58,0.8);
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .chip.good{border-color:rgba(34,197,94,0.4); color:rgba(34,197,94,0.95); background:rgba(34,197,94,0.08)}
+    .chip.warn{border-color:rgba(245,158,11,0.45); color:rgba(245,158,11,0.95); background:rgba(245,158,11,0.08)}
+    .chip.bad{border-color:rgba(239,68,68,0.4); color:rgba(239,68,68,0.95); background:rgba(239,68,68,0.08)}
+    .chip.accent{border-color:rgba(99,102,241,0.4); color:rgba(129,140,248,0.95); background:rgba(99,102,241,0.08)}
 
-        .btn:hover {
-            background: var(--accent-hover);
-        }
+    .row-actions{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
+    .mini{
+      padding:7px 10px;
+      font-size:12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(22,22,34,0.75);
+      color:var(--text);
+      cursor:pointer;
+    }
+    .mini:hover{border-color:rgba(99,102,241,0.7)}
+    .mini.danger:hover{border-color:rgba(239,68,68,0.6)}
 
-        .btn-secondary {
-            background: var(--bg-tertiary);
-        }
+    .card{
+      border:1px solid rgba(42,42,58,0.8);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(22,22,34,0.55);
+      margin-bottom:10px;
+    }
+    .card h4{font-size:13px; margin-bottom:6px}
+    .card p{font-size:12px; color:var(--muted);}
 
-        .btn-secondary:hover {
-            background: var(--bg-secondary);
-        }
+    .list{display:flex; flex-direction:column; gap:10px}
+    .item{display:flex; justify-content:space-between; gap:12px; align-items:flex-start}
+    .item .left{min-width:0}
+    .item .right{white-space:nowrap; text-align:right}
+    .item .name{font-weight:700}
+    .item .desc{font-size:12px; color:var(--muted2); margin-top:2px}
 
-        .btn-danger {
-            background: var(--danger);
-        }
+    /* Import options grid */
+    .import-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap:12px;
+      margin-top:12px;
+    }
+    .import-card{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:16px;
+      background:rgba(22,22,34,0.55);
+      cursor:pointer;
+      transition: all 0.15s ease;
+      text-align:center;
+    }
+    .import-card:hover{
+      border-color:rgba(99,102,241,0.6);
+      transform:translateY(-2px);
+    }
+    .import-card.connected{
+      border-color:rgba(34,197,94,0.5);
+      background:rgba(34,197,94,0.05);
+    }
+    .import-icon{font-size:28px; margin-bottom:8px}
+    .import-card h4{font-size:13px; margin-bottom:4px}
+    .import-card p{font-size:11px; color:var(--muted)}
+    .import-card .status{margin-top:6px; font-size:11px; font-weight:600}
 
-        .btn-danger:hover {
-            background: #dc2626;
-        }
+    /* Scanning animation */
+    .scanning{
+      display:flex; align-items:center; gap:12px;
+      padding:16px;
+      border:1px solid rgba(99,102,241,0.3);
+      border-radius:14px;
+      background:rgba(99,102,241,0.05);
+      margin-top:14px;
+    }
+    .scanning .spinner{
+      width:24px;height:24px;
+      border:3px solid var(--border);
+      border-top-color:var(--accent);
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .scanning .text{font-size:13px}
+    .scanning .text span{color:var(--muted)}
 
-        .btn-success {
-            background: var(--success);
-        }
+    /* Modal */
+    .modal-backdrop{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.55);
+      display:none;
+      align-items:center; justify-content:center;
+      padding:16px;
+      z-index:200;
+    }
+    .modal{
+      width:min(600px, 95%);
+      max-height:90vh;
+      overflow-y:auto;
+      border:1px solid var(--border);
+      border-radius:18px;
+      background:rgba(18,18,26,0.98);
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    }
+    .modal-header{display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--border)}
+    .modal-header h3{font-size:14px}
+    .modal-header button{background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:20px; padding:4px}
+    .modal-body{padding:14px}
+    .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:12px}
 
-        .btn-success:hover {
-            background: #059669;
-        }
+    .form{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    @media (max-width: 650px){ .form{grid-template-columns:1fr} }
+    .field label{display:block; font-size:12px; color:var(--muted2); margin-bottom:6px}
+    .select, .text{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(22,22,34,0.75);
+      color:var(--text);
+      outline:none;
+    }
 
-        .subscriptions-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
+    .permission-box{
+      padding:14px;
+      border:1px solid rgba(245,158,11,0.3);
+      border-radius:12px;
+      background:rgba(245,158,11,0.05);
+      margin-bottom:14px;
+    }
+    .permission-box h5{font-size:13px; color:var(--warn); margin-bottom:6px}
+    .permission-box p{font-size:12px; color:var(--muted)}
+    .permission-box ul{font-size:12px; color:var(--muted); margin:8px 0 0 18px}
 
-        .btn-group {
-            display: flex;
-            gap: 0.5rem;
-        }
+    .toast{
+      position:fixed; top:16px; right:16px;
+      background:rgba(22,22,34,0.95);
+      border:1px solid rgba(99,102,241,0.5);
+      color:var(--text);
+      padding:10px 14px;
+      border-radius:14px;
+      min-width:220px;
+      box-shadow:0 16px 40px rgba(0,0,0,0.5);
+      display:none;
+      z-index:400;
+    }
+    .toast .t-title{font-weight:800; font-size:13px}
+    .toast .t-body{font-size:12px; color:var(--muted); margin-top:4px}
 
-        .subscriptions-list {
-            display: grid;
-            gap: 1rem;
-        }
+    .empty-state{text-align:center; padding:40px 20px}
+    .empty-state .icon{font-size:48px; margin-bottom:12px}
 
-        .subscription-card {
-            background: var(--bg-secondary);
-            padding: 1.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--bg-tertiary);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .subscription-info {
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .subscription-name {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-
-        .subscription-meta {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .subscription-price {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-right: 2rem;
-        }
-
-        .subscription-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .btn-small {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            padding: 2rem;
-            border-radius: 12px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: var(--text-secondary);
-        }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 0.75rem;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--bg-tertiary);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-family: inherit;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: flex-end;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: var(--bg-secondary);
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--success);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            transform: translateX(400px);
-            transition: transform 0.3s;
-            z-index: 2000;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-secondary);
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-
-        .suggestion-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-left: 0.5rem;
-        }
-
-        .badge-cancel {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--danger);
-        }
-
-        .badge-downgrade {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--warning);
-        }
-
-        .import-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .import-card {
-            background: var(--bg-tertiary);
-            padding: 1.5rem;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s;
-        }
-
-        .import-card:hover {
-            border-color: var(--accent);
-            background: rgba(59, 130, 246, 0.1);
-        }
-
-        .import-icon {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .import-title {
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-
-        .import-desc {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .connection-status {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-            margin-left: 0.5rem;
-        }
-
-        .info-box {
-            background: rgba(59, 130, 246, 0.1);
-            border-left: 4px solid var(--accent);
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-        }
-
-        .info-box p {
-            margin: 0;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-    </style>
+    @keyframes fadeInUp{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+    .animate{animation:fadeInUp .35s ease-out both}
+    
+    input[type="file"]{display:none}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>💰 Subscription Copilot Pro</h1>
-            <p class="subtitle">Track, analyze, and optimize your recurring expenses</p>
-        </header>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Monthly Total</div>
-                <div class="stat-value" id="monthlyTotal">€0.00</div>
-                <div class="stat-trend trend-up" id="monthlyTrend">—</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Annual Cost</div>
-                <div class="stat-value" id="annualTotal">€0.00</div>
-                <div class="stat-trend" id="annualTrend">—</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Active Subscriptions</div>
-                <div class="stat-value" id="activeCount">0</div>
-                <div class="stat-trend" id="activeCountTrend">—</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Potential Savings</div>
-                <div class="stat-value trend-down" id="potentialSavings">€0.00</div>
-                <div class="stat-trend" id="savingsTrend">Based on usage</div>
-            </div>
-        </div>
-
-        <div class="subscriptions-header">
-            <h2>Your Subscriptions</h2>
-            <div class="btn-group">
-                <button class="btn btn-secondary btn-small" onclick="openImportModal()">📥 Import</button>
-                <button class="btn btn-secondary btn-small" onclick="exportData()">📤 Export</button>
-                <button class="btn btn-secondary btn-small" onclick="connectAccounts()">🔗 Connect Accounts</button>
-                <button class="btn btn-small" onclick="openAddModal()">+ Add Manual</button>
-            </div>
-        </div>
-
-        <div id="subscriptionsList" class="subscriptions-list"></div>
+  <header class="header">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Subscription Copilot</h1>
+        <p>Auto-detect • track renewals • cancel faster</p>
+      </div>
     </div>
 
-    <!-- Add/Edit Modal -->
-    <div id="addModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title" id="modalTitle">Add Subscription</h3>
-            </div>
-            <form id="subscriptionForm">
-                <div class="form-group">
-                    <label for="name">Service Name *</label>
-                    <input type="text" id="name" required placeholder="Netflix, Spotify, etc.">
-                </div>
-                <div class="form-group">
-                    <label for="price">Price *</label>
-                    <input type="number" id="price" step="0.01" required placeholder="9.99">
-                </div>
-                <div class="form-group">
-                    <label for="currency">Currency</label>
-                    <select id="currency">
-                        <option value="€">€ (EUR)</option>
-                        <option value="$">$ (USD)</option>
-                        <option value="£">£ (GBP)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="billing">Billing Cycle *</label>
-                    <select id="billing">
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                        <option value="quarterly">Quarterly</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="category">Category</label>
-                    <select id="category">
-                        <option value="Entertainment">Entertainment</option>
-                        <option value="Productivity">Productivity</option>
-                        <option value="Cloud Storage">Cloud Storage</option>
-                        <option value="Software">Software</option>
-                        <option value="Fitness">Fitness</option>
-                        <option value="Education">Education</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="nextBilling">Next Billing Date *</label>
-                    <input type="date" id="nextBilling" required>
-                </div>
-                <div class="form-group">
-                    <label for="notes">Notes (optional)</label>
-                    <textarea id="notes" rows="3" placeholder="Add any notes about this subscription..."></textarea>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn">Save</button>
-                </div>
-            </form>
-        </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="import">Import</button>
+      <button class="tab" data-tab="savings">Savings</button>
     </div>
 
-    <!-- Import Modal -->
-    <div id="importModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Import Subscriptions</h3>
-            </div>
-            
-            <div class="info-box">
-                <p><strong>💡 Tip:</strong> Connect your email or bank to automatically detect subscriptions</p>
-            </div>
-
-            <div class="import-options">
-                <div class="import-card" onclick="document.getElementById('jsonInput').click()">
-                    <div class="import-icon">📄</div>
-                    <div class="import-title">JSON File</div>
-                    <div class="import-desc">Import backup</div>
-                </div>
-                
-                <div class="import-card" onclick="document.getElementById('csvInput').click()">
-                    <div class="import-icon">📊</div>
-                    <div class="import-title">CSV/Bank Statement</div>
-                    <div class="import-desc">Auto-detect from transactions</div>
-                </div>
-
-                <div class="import-card" onclick="connectEmail()">
-                    <div class="import-icon">📧</div>
-                    <div class="import-title">Email</div>
-                    <div class="import-desc">Scan receipts</div>
-                </div>
-
-                <div class="import-card" onclick="connectBank()">
-                    <div class="import-icon">🏦</div>
-                    <div class="import-title">Bank Account</div>
-                    <div class="import-desc">Auto-sync transactions</div>
-                </div>
-            </div>
-
-            <input type="file" id="jsonInput" class="file-input" accept=".json" onchange="importJSON(event)">
-            <input type="file" id="csvInput" class="file-input" accept=".csv" onchange="importCSV(event)">
-
-            <div class="form-actions">
-                <button class="btn btn-secondary" onclick="closeImportModal()">Close</button>
-            </div>
-        </div>
+    <div class="header-actions">
+      <button class="btn success" id="btnConnect">📥 Connect sources</button>
     </div>
+  </header>
 
-    <!-- Connect Accounts Modal -->
-    <div id="connectModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">Connect Your Accounts</h3>
-            </div>
-            
-            <div class="info-box">
-                <p><strong>🔒 Secure:</strong> All connections are encrypted. We never store your passwords.</p>
-            </div>
-
-            <div class="form-group">
-                <label>Email Provider</label>
-                <select id="emailProvider">
-                    <option value="">Select email provider...</option>
-                    <option value="gmail">Gmail</option>
-                    <option value="outlook">Outlook</option>
-                    <option value="icloud">iCloud Mail</option>
-                    <option value="yahoo">Yahoo Mail</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Bank/Card Provider</label>
-                <select id="bankProvider">
-                    <option value="">Select bank...</option>
-                    <option value="plaid">Connect via Plaid (US)</option>
-                    <option value="nordigen">Nordigen (EU)</option>
-                    <option value="manual">Upload CSV statement</option>
-                </select>
-            </div>
-
-            <div class="info-box">
-                <p><strong>Note:</strong> Full integration requires backend setup. For now, use CSV import or manual entry.</p>
-            </div>
-
-            <div class="form-actions">
-                <button class="btn btn-secondary" onclick="closeConnectModal()">Cancel</button>
-                <button class="btn" onclick="initiateConnection()">Connect</button>
-            </div>
+  <main class="container">
+    <section class="hero animate">
+      <div>
+        <h2>Your subscriptions, auto-detected.</h2>
+        <p>Connect your email or bank — we scan for recurring charges and receipts automatically. No manual entry needed.</p>
+      </div>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">Monthly total</div>
+          <div class="value" id="kpiTotal">€0</div>
+          <div class="sub" id="kpiCount">0 subscriptions</div>
         </div>
+        <div class="kpi">
+          <div class="label">Next 7 days</div>
+          <div class="value" id="kpiNext">€0</div>
+          <div class="sub">renewals due</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Potential savings</div>
+          <div class="value" id="kpiSave" style="color:var(--good)">€0</div>
+          <div class="sub">if optimized</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Import Panel -->
+    <section class="panel animate" id="importPanel" style="margin-top:14px; display:none;">
+      <div class="panel-header">
+        <div>
+          <h3>🔌 Connect your sources</h3>
+          <div class="meta">Auto-detect subscriptions from receipts & recurring charges</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="import-grid">
+          <div class="import-card" id="importGmail">
+            <div class="import-icon">📧</div>
+            <h4>Gmail</h4>
+            <p>Scan receipt emails</p>
+            <div class="status" id="gmailStatus" style="color:var(--muted2)">Click to connect</div>
+          </div>
+          <div class="import-card" id="importCSV">
+            <div class="import-icon">📊</div>
+            <h4>CSV / Bank</h4>
+            <p>Upload bank statement</p>
+            <div class="status" style="color:var(--muted2)">Click to upload</div>
+          </div>
+          <div class="import-card" id="importJSON">
+            <div class="import-icon">📄</div>
+            <h4>JSON Backup</h4>
+            <p>Restore from backup</p>
+            <div class="status" style="color:var(--muted2)">Click to import</div>
+          </div>
+          <div class="import-card" id="importManual">
+            <div class="import-icon">✏️</div>
+            <h4>Manual</h4>
+            <p>Add by hand (fallback)</p>
+            <div class="status" style="color:var(--muted2)">Click to add</div>
+          </div>
+        </div>
+        <input type="file" id="csvInput" accept=".csv">
+        <input type="file" id="jsonInput" accept=".json">
+        <div id="scanStatus"></div>
+      </div>
+    </section>
+
+    <!-- Main Grid -->
+    <section class="grid" id="mainGrid">
+      <div class="panel animate">
+        <div class="panel-header">
+          <div>
+            <h3>Your subscriptions</h3>
+            <div class="meta">Sorted by renewal date</div>
+          </div>
+          <div class="search" style="width:260px;">
+            <input class="input" id="searchInput" placeholder="Search…">
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="emptyState" class="empty-state" style="display:none;">
+            <div class="icon">📭</div>
+            <h4 style="margin-bottom:8px">No subscriptions yet</h4>
+            <p style="color:var(--muted); margin-bottom:16px">Connect your email or bank to auto-detect recurring payments.</p>
+            <button class="btn primary" id="btnEmptyConnect">Connect sources</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="table" id="subsTable">
+              <thead>
+                <tr>
+                  <th>Subscription</th>
+                  <th>Price</th>
+                  <th>Renewal</th>
+                  <th>Signal</th>
+                  <th style="text-align:right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="subsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="panel animate">
+        <div class="panel-header">
+          <div>
+            <h3>Today's focus</h3>
+            <div class="meta">Quick wins in 2 minutes</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="card">
+            <h4>🎯 Top wastes</h4>
+            <p>Based on price creep, low usage, or high cost.</p>
+            <div class="list" id="wasteList" style="margin-top:10px"></div>
+          </div>
+
+          <div class="card">
+            <h4>⏰ Upcoming renewals</h4>
+            <p>Decide before you get charged.</p>
+            <div class="list" id="renewList" style="margin-top:10px"></div>
+          </div>
+
+          <div class="card">
+            <h4>💡 Alternatives</h4>
+            <p>Human-picked swaps, not AI spam.</p>
+            <div class="list" id="altList" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-backdrop" id="addModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add subscription</h3>
+        <button id="addClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form">
+          <div class="field">
+            <label>Name *</label>
+            <input class="text" id="fName" placeholder="e.g. Netflix">
+          </div>
+          <div class="field">
+            <label>Category</label>
+            <select class="select" id="fCategory">
+              <option>Entertainment</option>
+              <option>AI Tools</option>
+              <option>Productivity</option>
+              <option>Fitness</option>
+              <option>Cloud Storage</option>
+              <option>Software</option>
+              <option>News</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Monthly price (€) *</label>
+            <input class="text" id="fPrice" type="number" step="0.01" placeholder="e.g. 12.99">
+          </div>
+          <div class="field">
+            <label>Billing cycle</label>
+            <select class="select" id="fBilling">
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+              <option value="quarterly">Quarterly</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Next renewal *</label>
+            <input class="text" id="fRenewal" type="date">
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <input class="text" id="fNotes" placeholder="Optional notes">
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="btnCancelAdd">Cancel</button>
+          <button class="btn primary" id="btnSaveAdd">Save</button>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <!-- Toast -->
-    <div id="toast" class="toast"></div>
+  <!-- Gmail Auth Modal -->
+  <div class="modal-backdrop" id="gmailModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📧 Connect Gmail</h3>
+        <button id="gmailClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="permission-box">
+          <h5>🔒 Privacy first</h5>
+          <p>We only scan for subscription receipts. We never read personal emails.</p>
+          <ul>
+            <li>Read-only access to receipt emails</li>
+            <li>Pattern matching only</li>
+            <li>Disconnect anytime</li>
+          </ul>
+        </div>
+        <div style="text-align:center; padding:20px 0;">
+          <button class="btn primary" id="btnGmailAuth" style="font-size:15px; padding:14px 28px">Sign in with Google</button>
+          <p style="font-size:11px; color:var(--muted2); margin-top:10px">OAuth 2.0 — we never see your password</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <script>
-        let subscriptions = JSON.parse(localStorage.getItem('subscriptions')) || [];
-        let editingId = null;
+  <!-- Alternatives Modal -->
+  <div class="modal-backdrop" id="altModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="altTitle">Alternatives</h3>
+        <button id="altClose">×</button>
+      </div>
+      <div class="modal-body" id="altBody"></div>
+    </div>
+  </div>
 
-        // Common subscription patterns for auto-detection
-        const SUBSCRIPTION_PATTERNS = [
-            { pattern: /netflix/i, name: 'Netflix', category: 'Entertainment' },
-            { pattern: /spotify/i, name: 'Spotify', category: 'Entertainment' },
-            { pattern: /apple\s*(music|tv|one)/i, name: 'Apple', category: 'Entertainment' },
-            { pattern: /youtube\s*premium/i, name: 'YouTube Premium', category: 'Entertainment' },
-            { pattern: /disney/i, name: 'Disney+', category: 'Entertainment' },
-            { pattern: /hbo/i, name: 'HBO Max', category: 'Entertainment' },
-            { pattern: /amazon\s*prime/i, name: 'Amazon Prime', category: 'Entertainment' },
-            { pattern: /dropbox/i, name: 'Dropbox', category: 'Cloud Storage' },
-            { pattern: /google\s*one/i, name: 'Google One', category: 'Cloud Storage' },
-            { pattern: /icloud/i, name: 'iCloud+', category: 'Cloud Storage' },
-            { pattern: /office\s*365/i, name: 'Microsoft 365', category: 'Productivity' },
-            { pattern: /adobe/i, name: 'Adobe Creative Cloud', category: 'Software' },
-            { pattern: /github/i, name: 'GitHub', category: 'Software' },
-            { pattern: /notion/i, name: 'Notion', category: 'Productivity' },
-        ];
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <div class="t-title" id="toastTitle">Saved</div>
+    <div class="t-body" id="toastBody">Done</div>
+  </div>
 
-        function renderSubscriptions() {
-            const list = document.getElementById('subscriptionsList');
-            
-            if (subscriptions.length === 0) {
-                list.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <h3>No subscriptions yet</h3>
-                        <p>Import from your email/bank or add manually to start tracking</p>
-                        <br>
-                        <button class="btn" onclick="openImportModal()">Get Started</button>
-                    </div>
-                `;
-                updateStats();
-                return;
+  <script>
+    // ==================== CONFIG ====================
+    const API_URL = window.location.hostname === 'localhost' 
+      ? 'http://localhost:3001' 
+      : 'https://subscription-copilot-api.onrender.com';
+
+    const SUBSCRIPTION_PATTERNS = [
+      { pattern: /netflix/i, name: 'Netflix', category: 'Entertainment', defaultPrice: 12.99 },
+      { pattern: /spotify/i, name: 'Spotify', category: 'Entertainment', defaultPrice: 10.99 },
+      { pattern: /apple\s*(music|tv|one)/i, name: 'Apple One', category: 'Entertainment', defaultPrice: 19.95 },
+      { pattern: /youtube\s*premium/i, name: 'YouTube Premium', category: 'Entertainment', defaultPrice: 13.99 },
+      { pattern: /disney/i, name: 'Disney+', category: 'Entertainment', defaultPrice: 11.99 },
+      { pattern: /hbo|max/i, name: 'HBO Max', category: 'Entertainment', defaultPrice: 13.99 },
+      { pattern: /amazon\s*prime/i, name: 'Amazon Prime', category: 'Entertainment', defaultPrice: 8.99 },
+      { pattern: /dropbox/i, name: 'Dropbox', category: 'Cloud Storage', defaultPrice: 11.99 },
+      { pattern: /google\s*one/i, name: 'Google One', category: 'Cloud Storage', defaultPrice: 2.99 },
+      { pattern: /icloud/i, name: 'iCloud+', category: 'Cloud Storage', defaultPrice: 2.99 },
+      { pattern: /office\s*365|microsoft\s*365/i, name: 'Microsoft 365', category: 'Productivity', defaultPrice: 12.99 },
+      { pattern: /adobe/i, name: 'Adobe CC', category: 'Software', defaultPrice: 59.99 },
+      { pattern: /github/i, name: 'GitHub', category: 'Software', defaultPrice: 4.00 },
+      { pattern: /notion/i, name: 'Notion', category: 'Productivity', defaultPrice: 10.00 },
+      { pattern: /figma/i, name: 'Figma', category: 'Software', defaultPrice: 15.00 },
+      { pattern: /slack/i, name: 'Slack', category: 'Productivity', defaultPrice: 8.75 },
+      { pattern: /claude|anthropic/i, name: 'Claude Pro', category: 'AI Tools', defaultPrice: 20.00 },
+      { pattern: /chatgpt|openai/i, name: 'ChatGPT Plus', category: 'AI Tools', defaultPrice: 20.00 },
+      { pattern: /midjourney/i, name: 'Midjourney', category: 'AI Tools', defaultPrice: 10.00 },
+      { pattern: /gym|fitness|sport/i, name: 'Gym', category: 'Fitness', defaultPrice: 39.90 },
+    ];
+
+    const CURATED_ALTERNATIVES = {
+      'Netflix': [{ title: 'Rotate streaming', desc: '1 month on, 2 off. Save €8/mo on average.' }],
+      'Spotify': [{ title: 'Family/Duo plan', desc: 'Split with friends = €3/mo each.' }],
+      'Claude Pro': [{ title: 'Mix models', desc: 'Route simple tasks to GPT-5.2 (cheaper).' }],
+      'ChatGPT Plus': [{ title: 'Use free tier + Claude', desc: 'Alternate between free tiers.' }],
+      'Adobe CC': [{ title: 'Affinity suite', desc: 'One-time €70 vs €720/yr.' }],
+      'Gym': [{ title: 'Home workouts', desc: 'Pause membership, do 8-week home program.' }],
+      'YouTube Premium': [{ title: 'Browser extension', desc: 'uBlock Origin blocks ads for free.' }],
+    };
+
+    // ==================== STATE ====================
+    let subs = JSON.parse(localStorage.getItem('subscriptions_v2')) || [];
+    let editingId = null;
+    let gmailConnected = false;
+
+    // ==================== HELPERS ====================
+    const eur = n => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n);
+    const daysUntil = d => { 
+      const dt = new Date(d + 'T00:00:00'); 
+      return Math.ceil((dt - new Date()) / (1000*60*60*24)); 
+    };
+    const fmtDate = d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+    const esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const nextMonth = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d.toISOString().split('T')[0]; };
+
+    function getSignal(sub) {
+      const monthly = sub.billing === 'yearly' ? sub.price / 12 : sub.billing === 'quarterly' ? sub.price / 3 : sub.price;
+      if (monthly >= 50) return { cls: 'bad', text: '💸 High cost' };
+      if (sub.priceCreep && sub.priceCreep > 0) return { cls: 'warn', text: `+${eur(sub.priceCreep)}` };
+      if (monthly >= 20) return { cls: 'warn', text: '💡 Review' };
+      return { cls: 'good', text: '✓ OK' };
+    }
+
+    function getMonthlyPrice(sub) {
+      if (sub.billing === 'yearly') return sub.price / 12;
+      if (sub.billing === 'quarterly') return sub.price / 3;
+      return sub.price;
+    }
+
+    // ==================== RENDER ====================
+    function computeKpis() {
+      const total = subs.reduce((a, s) => a + getMonthlyPrice(s), 0);
+      const upcoming = subs.filter(s => { const d = daysUntil(s.renewal); return d >= 0 && d <= 7; }).reduce((a, s) => a + getMonthlyPrice(s), 0);
+      const savings = subs.reduce((a, s) => {
+        const sig = getSignal(s);
+        if (sig.cls === 'bad') return a + getMonthlyPrice(s) * 0.5;
+        if (sig.cls === 'warn') return a + getMonthlyPrice(s) * 0.2;
+        return a;
+      }, 0);
+      document.getElementById('kpiTotal').textContent = eur(total);
+      document.getElementById('kpiCount').textContent = `${subs.length} subscription${subs.length !== 1 ? 's' : ''}`;
+      document.getElementById('kpiNext').textContent = eur(upcoming);
+      document.getElementById('kpiSave').textContent = eur(savings);
+    }
+
+    function renderTable(filter = '') {
+      const tbody = document.getElementById('subsBody');
+      const empty = document.getElementById('emptyState');
+      const table = document.getElementById('subsTable');
+
+      if (subs.length === 0) {
+        empty.style.display = 'block';
+        table.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = '';
+
+      const list = subs
+        .filter(s => !filter || (s.name + s.category + (s.notes || '')).toLowerCase().includes(filter.toLowerCase()))
+        .sort((a, b) => daysUntil(a.renewal) - daysUntil(b.renewal));
+
+      tbody.innerHTML = list.map(s => {
+        const due = daysUntil(s.renewal);
+        const sig = getSignal(s);
+        const renewCls = due < 0 ? 'bad' : due <= 3 ? 'bad' : due <= 7 ? 'warn' : 'good';
+        return `
+          <tr>
+            <td>
+              <div class="row-title">${esc(s.name)}</div>
+              <div class="row-sub">${esc(s.category)}${s.notes ? ' • ' + esc(s.notes) : ''}</div>
+            </td>
+            <td>
+              <div style="font-weight:800">${eur(s.price)}</div>
+              <div class="row-sub">/${s.billing === 'yearly' ? 'yr' : s.billing === 'quarterly' ? 'qtr' : 'mo'}</div>
+            </td>
+            <td>
+              <div style="font-weight:700">${fmtDate(s.renewal)}</div>
+              <div class="row-sub"><span class="chip ${renewCls}">${due < 0 ? 'overdue' : due + 'd'}</span></div>
+            </td>
+            <td><span class="chip ${sig.cls}">${sig.text}</span></td>
+            <td style="text-align:right">
+              <div class="row-actions">
+                <button class="mini" data-alt="${s.id}">Alternatives</button>
+                <button class="mini" data-edit="${s.id}">Edit</button>
+                <button class="mini danger" data-del="${s.id}">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      tbody.querySelectorAll('[data-del]').forEach(btn => btn.onclick = () => deleteSub(btn.dataset.del));
+      tbody.querySelectorAll('[data-edit]').forEach(btn => btn.onclick = () => editSub(btn.dataset.edit));
+      tbody.querySelectorAll('[data-alt]').forEach(btn => btn.onclick = () => showAlternatives(btn.dataset.alt));
+    }
+
+    function renderSidebar() {
+      // Top wastes
+      const wastes = [...subs].map(s => ({ s, score: (getSignal(s).cls === 'bad' ? 3 : getSignal(s).cls === 'warn' ? 2 : 1) + getMonthlyPrice(s) / 30 }))
+        .sort((a, b) => b.score - a.score).slice(0, 3);
+      document.getElementById('wasteList').innerHTML = wastes.length ? wastes.map(({ s }) => `
+        <div class="item">
+          <div class="left"><div class="name">${esc(s.name)}</div><div class="desc">${eur(getMonthlyPrice(s))}/mo</div></div>
+          <div class="right"><span class="chip ${getSignal(s).cls}">${getSignal(s).text}</span></div>
+        </div>
+      `).join('') : '<p style="color:var(--muted2);font-size:12px">No data yet</p>';
+
+      // Upcoming
+      const upcoming = [...subs].map(s => ({ s, due: daysUntil(s.renewal) })).filter(x => x.due >= 0).sort((a, b) => a.due - b.due).slice(0, 4);
+      document.getElementById('renewList').innerHTML = upcoming.length ? upcoming.map(({ s, due }) => `
+        <div class="item">
+          <div class="left"><div class="name">${esc(s.name)}</div><div class="desc">in ${due}d • ${fmtDate(s.renewal)}</div></div>
+          <div class="right"><span class="chip ${due <= 3 ? 'bad' : due <= 7 ? 'warn' : 'good'}">${eur(getMonthlyPrice(s))}</span></div>
+        </div>
+      `).join('') : '<p style="color:var(--muted2);font-size:12px">No upcoming renewals</p>';
+
+      // Alternatives
+      const alts = [...subs].filter(s => CURATED_ALTERNATIVES[s.name]).slice(0, 3);
+      document.getElementById('altList').innerHTML = alts.length ? alts.map(s => {
+        const alt = CURATED_ALTERNATIVES[s.name][0];
+        return `
+          <div class="item">
+            <div class="left"><div class="name">${esc(s.name)} → ${esc(alt.title)}</div><div class="desc">${esc(alt.desc)}</div></div>
+          </div>
+        `;
+      }).join('') : '<p style="color:var(--muted2);font-size:12px">Add subscriptions to see suggestions</p>';
+    }
+
+    function renderAll() {
+      computeKpis();
+      renderTable(document.getElementById('searchInput').value);
+      renderSidebar();
+    }
+
+    // ==================== DATA OPS ====================
+    function saveData() {
+      localStorage.setItem('subscriptions_v2', JSON.stringify(subs));
+    }
+
+    function deleteSub(id) {
+      if (!confirm('Delete this subscription?')) return;
+      subs = subs.filter(s => s.id !== id);
+      saveData();
+      renderAll();
+      toast('Deleted', 'Subscription removed');
+    }
+
+    function editSub(id) {
+      const s = subs.find(x => x.id === id);
+      if (!s) return;
+      editingId = id;
+      document.getElementById('modalTitle').textContent = 'Edit subscription';
+      document.getElementById('fName').value = s.name;
+      document.getElementById('fCategory').value = s.category;
+      document.getElementById('fPrice').value = s.price;
+      document.getElementById('fBilling').value = s.billing || 'monthly';
+      document.getElementById('fRenewal').value = s.renewal;
+      document.getElementById('fNotes').value = s.notes || '';
+      openModal('addModal');
+    }
+
+    function showAlternatives(id) {
+      const s = subs.find(x => x.id === id);
+      if (!s) return;
+      const alts = CURATED_ALTERNATIVES[s.name] || [{ title: 'No suggestion yet', desc: 'Check back soon for alternatives.' }];
+      document.getElementById('altTitle').textContent = `Alternatives for ${s.name}`;
+      document.getElementById('altBody').innerHTML = alts.map(a => `
+        <div class="card">
+          <h4>${esc(a.title)}</h4>
+          <p>${esc(a.desc)}</p>
+        </div>
+      `).join('') + '<div class="modal-actions"><button class="btn primary" onclick="closeModal(\'altModal\')">Close</button></div>';
+      openModal('altModal');
+    }
+
+    // ==================== IMPORT/EXPORT ====================
+    function exportData() {
+      const blob = new Blob([JSON.stringify(subs, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `subscriptions-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      toast('Exported', 'JSON file downloaded');
+    }
+
+    function importJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const imported = JSON.parse(ev.target.result);
+          subs = imported;
+          saveData();
+          renderAll();
+          toast('Imported', `${imported.length} subscriptions loaded`);
+        } catch (err) {
+          alert('Invalid JSON file');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    function importCSV(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const lines = ev.target.result.split('\n');
+        const detected = [];
+        const seen = new Set(subs.map(s => s.name.toLowerCase()));
+
+        lines.forEach(line => {
+          const lower = line.toLowerCase();
+          SUBSCRIPTION_PATTERNS.forEach(p => {
+            if (p.pattern.test(lower) && !seen.has(p.name.toLowerCase())) {
+              const priceMatch = line.match(/[\d,]+\.\d{2}/);
+              const price = priceMatch ? parseFloat(priceMatch[0].replace(',', '')) : p.defaultPrice;
+              seen.add(p.name.toLowerCase());
+              detected.push({
+                id: crypto.randomUUID(),
+                name: p.name,
+                category: p.category,
+                price,
+                billing: 'monthly',
+                renewal: nextMonth(),
+                notes: 'Auto-detected from CSV',
+                source: 'csv'
+              });
             }
-
-            list.innerHTML = subscriptions.map(sub => {
-                const monthlyPrice = calculateMonthlyPrice(sub.price, sub.billing);
-                const suggestion = getSuggestion(sub);
-                const daysUntilBilling = Math.ceil((new Date(sub.nextBilling) - new Date()) / (1000 * 60 * 60 * 24));
-                
-                return `
-                    <div class="subscription-card">
-                        <div class="subscription-info">
-                            <div class="subscription-name">
-                                ${sub.name}
-                                ${suggestion ? `<span class="suggestion-badge badge-${suggestion.type}">${suggestion.text}</span>` : ''}
-                            </div>
-                            <div class="subscription-meta">
-                                ${sub.category} • ${sub.billing} • Next: ${formatDate(sub.nextBilling)} (${daysUntilBilling}d)
-                                ${sub.notes ? `<br>📝 ${sub.notes}` : ''}
-                            </div>
-                        </div>
-                        <div class="subscription-price">
-                            ${sub.currency}${sub.price}
-                            <span style="font-size: 0.875rem; color: var(--text-secondary);">/${sub.billing === 'monthly' ? 'mo' : sub.billing === 'yearly' ? 'yr' : 'qtr'}</span>
-                        </div>
-                        <div class="subscription-actions">
-                            <button class="btn btn-secondary btn-small" onclick="editSubscription('${sub.id}')">Edit</button>
-                            <button class="btn btn-danger btn-small" onclick="deleteSubscription('${sub.id}')">Delete</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            updateStats();
-        }
-
-        function calculateMonthlyPrice(price, billing) {
-            if (billing === 'monthly') return price;
-            if (billing === 'yearly') return price / 12;
-            if (billing === 'quarterly') return price / 3;
-            return price;
-        }
-
-        function getSuggestion(sub) {
-            const monthlyPrice = calculateMonthlyPrice(sub.price, sub.billing);
-            
-            // High cost - suggest canceling
-            if (monthlyPrice > 50) {
-                return { type: 'cancel', text: '💡 High cost - Review usage' };
-            }
-            
-            // Monthly billing - suggest yearly for savings
-            if (sub.billing === 'monthly' && monthlyPrice > 10) {
-                return { type: 'downgrade', text: '💰 Check yearly plan (save ~16%)' };
-            }
-            
-            return null;
-        }
-
-        function updateStats() {
-            const monthlyTotal = subscriptions.reduce((sum, sub) => 
-                sum + calculateMonthlyPrice(sub.price, sub.billing), 0
-            );
-            
-            const annualTotal = monthlyTotal * 12;
-            
-            // Calculate potential savings from expensive subscriptions
-            const potentialSavings = subscriptions.reduce((sum, sub) => {
-                const suggestion = getSuggestion(sub);
-                if (suggestion && suggestion.type === 'cancel') {
-                    return sum + calculateMonthlyPrice(sub.price, sub.billing);
-                }
-                return sum;
-            }, 0);
-
-            document.getElementById('monthlyTotal').textContent = `€${monthlyTotal.toFixed(2)}`;
-            document.getElementById('annualTotal').textContent = `€${annualTotal.toFixed(2)}`;
-            document.getElementById('activeCount').textContent = subscriptions.length;
-            document.getElementById('potentialSavings').textContent = `€${potentialSavings.toFixed(2)}/mo`;
-        }
-
-        function formatDate(dateStr) {
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        }
-
-        function openAddModal() {
-            editingId = null;
-            document.getElementById('modalTitle').textContent = 'Add Subscription';
-            document.getElementById('subscriptionForm').reset();
-            
-            const nextMonth = new Date();
-            nextMonth.setMonth(nextMonth.getMonth() + 1);
-            document.getElementById('nextBilling').valueAsDate = nextMonth;
-            
-            document.getElementById('addModal').classList.add('active');
-        }
-
-        function editSubscription(id) {
-            editingId = id;
-            const sub = subscriptions.find(s => s.id === id);
-            
-            document.getElementById('modalTitle').textContent = 'Edit Subscription';
-            document.getElementById('name').value = sub.name;
-            document.getElementById('price').value = sub.price;
-            document.getElementById('currency').value = sub.currency;
-            document.getElementById('billing').value = sub.billing;
-            document.getElementById('category').value = sub.category;
-            document.getElementById('nextBilling').value = sub.nextBilling;
-            document.getElementById('notes').value = sub.notes || '';
-            
-            document.getElementById('addModal').classList.add('active');
-        }
-
-        function closeModal() {
-            document.getElementById('addModal').classList.remove('active');
-            editingId = null;
-        }
-
-        function openImportModal() {
-            document.getElementById('importModal').classList.add('active');
-        }
-
-        function closeImportModal() {
-            document.getElementById('importModal').classList.remove('active');
-        }
-
-        function connectAccounts() {
-            document.getElementById('connectModal').classList.add('active');
-        }
-
-        function closeConnectModal() {
-            document.getElementById('connectModal').classList.remove('active');
-        }
-
-        function deleteSubscription(id) {
-            if (confirm('Are you sure you want to delete this subscription?')) {
-                subscriptions = subscriptions.filter(s => s.id !== id);
-                saveData();
-                renderSubscriptions();
-                showToast('Subscription deleted');
-            }
-        }
-
-        function saveData() {
-            localStorage.setItem('subscriptions', JSON.stringify(subscriptions));
-        }
-
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        function exportData() {
-            const dataStr = JSON.stringify(subscriptions, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `subscriptions-${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            showToast('Exported successfully');
-        }
-
-        function importJSON(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    subscriptions = imported;
-                    saveData();
-                    renderSubscriptions();
-                    closeImportModal();
-                    showToast(`Imported ${imported.length} subscriptions`);
-                } catch (err) {
-                    alert('Invalid JSON file');
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function importCSV(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const csv = e.target.result;
-                    const detected = detectSubscriptionsFromCSV(csv);
-                    
-                    if (detected.length === 0) {
-                        alert('No subscriptions detected in CSV. Try uploading a bank statement with recurring charges.');
-                        return;
-                    }
-                    
-                    // Merge with existing
-                    detected.forEach(newSub => {
-                        const exists = subscriptions.find(s => s.name.toLowerCase() === newSub.name.toLowerCase());
-                        if (!exists) {
-                            subscriptions.push(newSub);
-                        }
-                    });
-                    
-                    saveData();
-                    renderSubscriptions();
-                    closeImportModal();
-                    showToast(`Detected ${detected.length} new subscriptions from CSV`);
-                } catch (err) {
-                    alert('Error parsing CSV: ' + err.message);
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function detectSubscriptionsFromCSV(csv) {
-            const lines = csv.split('\n');
-            const detected = [];
-            const seen = new Set();
-            
-            lines.forEach(line => {
-                const lower = line.toLowerCase();
-                
-                SUBSCRIPTION_PATTERNS.forEach(pattern => {
-                    if (pattern.pattern.test(lower) && !seen.has(pattern.name)) {
-                        // Try to extract price from line
-                        const priceMatch = line.match(/[\d,]+\.\d{2}/);
-                        const price = priceMatch ? parseFloat(priceMatch[0].replace(',', '')) : 9.99;
-                        
-                        seen.add(pattern.name);
-                        detected.push({
-                            id: Date.now().toString() + Math.random(),
-                            name: pattern.name,
-                            price: price,
-                            currency: '€',
-                            billing: 'monthly',
-                            category: pattern.category,
-                            nextBilling: getNextMonth(),
-                            notes: 'Auto-detected from CSV',
-                            createdAt: new Date().toISOString()
-                        });
-                    }
-                });
-            });
-            
-            return detected;
-        }
-
-        function getNextMonth() {
-            const date = new Date();
-            date.setMonth(date.getMonth() + 1);
-            return date.toISOString().split('T')[0];
-        }
-
-        // Backend API URL
-        const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : 'https://subscription-copilot-api.onrender.com';
-        let gmailConnected = false;
-
-        // Check Gmail connection on load
-        async function checkGmailStatus() {
-            try {
-                const res = await fetch(`${API_URL}/auth/status`);
-                const data = await res.json();
-                gmailConnected = data.connected;
-                updateGmailUI();
-            } catch (e) {
-                console.log('Backend not running');
-            }
-        }
-
-        function updateGmailUI() {
-            const emailCard = document.querySelector('.import-card[onclick="connectEmail()"]');
-            if (emailCard && gmailConnected) {
-                emailCard.innerHTML = `
-                    <div class="import-icon">✅</div>
-                    <h3>Gmail Connected</h3>
-                    <p>Click to scan for subscriptions</p>
-                `;
-            }
-        }
-
-        async function connectEmail() {
-            // Check if backend is running
-            try {
-                const statusRes = await fetch(`${API_URL}/auth/status`);
-                const status = await statusRes.json();
-                
-                if (status.connected) {
-                    // Already connected - scan emails
-                    await scanGmailSubscriptions();
-                } else {
-                    // Start OAuth flow
-                    const authRes = await fetch(`${API_URL}/auth/gmail`);
-                    const authData = await authRes.json();
-                    
-                    // Open OAuth popup
-                    const popup = window.open(authData.authUrl, 'Gmail Auth', 'width=500,height=600');
-                    
-                    // Listen for success message
-                    window.addEventListener('message', async (event) => {
-                        if (event.data?.type === 'GMAIL_CONNECTED') {
-                            gmailConnected = true;
-                            updateGmailUI();
-                            showToast('Gmail connected! Scanning...');
-                            await scanGmailSubscriptions();
-                        }
-                    });
-                }
-            } catch (e) {
-                alert('⚠️ Backend not running!\n\nStart the server:\n\ncd prototypes/subscription-copilot/backend\nnpm install\nnpm start\n\nThen try again.');
-            }
-        }
-
-        async function scanGmailSubscriptions() {
-            showToast('Scanning emails for subscriptions...');
-            
-            try {
-                const res = await fetch(`${API_URL}/api/scan-subscriptions`);
-                const data = await res.json();
-                
-                if (!res.ok) {
-                    throw new Error(data.error || 'Scan failed');
-                }
-                
-                if (data.subscriptions.length === 0) {
-                    showToast('No new subscriptions found');
-                    return;
-                }
-                
-                // Show found subscriptions for review
-                const existing = subscriptions.map(s => s.name.toLowerCase());
-                const newSubs = data.subscriptions.filter(s => !existing.includes(s.name.toLowerCase()));
-                
-                if (newSubs.length === 0) {
-                    showToast('All subscriptions already tracked!');
-                    return;
-                }
-                
-                // Add to subscriptions with confirmation
-                const confirmed = confirm(`Found ${newSubs.length} new subscription(s):\n\n${newSubs.map(s => `• ${s.name} - ${s.currency}${s.price || '?'} (${s.cycle})`).join('\n')}\n\nAdd them all?`);
-                
-                if (confirmed) {
-                    newSubs.forEach(sub => {
-                        subscriptions.push({
-                            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                            name: sub.name,
-                            price: sub.price || 0,
-                            currency: sub.currency === '€' ? 'EUR' : sub.currency === '$' ? 'USD' : 'EUR',
-                            billing: sub.cycle === 'yearly' ? 'yearly' : 'monthly',
-                            category: 'other',
-                            nextBilling: '',
-                            notes: `Imported from email: ${sub.emailSubject}`,
-                            createdAt: new Date().toISOString()
-                        });
-                    });
-                    
-                    saveData();
-                    renderSubscriptions();
-                    showToast(`Added ${newSubs.length} subscriptions!`);
-                }
-            } catch (e) {
-                showToast('Scan failed: ' + e.message);
-            }
-        }
-
-        function connectBank() {
-            alert('Bank integration coming soon!\n\nFor now, you can:\n1. Download your bank statement as CSV\n2. Upload it via "CSV/Bank Statement" option\n3. We\'ll auto-detect recurring charges');
-        }
-
-        function initiateConnection() {
-            const email = document.getElementById('emailProvider').value;
-            const bank = document.getElementById('bankProvider').value;
-            
-            if (email === 'gmail') {
-                connectEmail();
-                closeConnectModal();
-                return;
-            }
-            
-            if (!email && !bank) {
-                alert('Please select at least one connection type');
-                return;
-            }
-            
-            alert('Other providers require additional setup.\n\nFor now, please use:\n• Gmail (fully supported)\n• CSV import for bank statements\n• Manual entry for subscriptions');
-            
-            closeConnectModal();
-        }
-        
-        // Check Gmail status on page load
-        checkGmailStatus();
-
-        document.getElementById('subscriptionForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const formData = {
-                id: editingId || Date.now().toString(),
-                name: document.getElementById('name').value,
-                price: parseFloat(document.getElementById('price').value),
-                currency: document.getElementById('currency').value,
-                billing: document.getElementById('billing').value,
-                category: document.getElementById('category').value,
-                nextBilling: document.getElementById('nextBilling').value,
-                notes: document.getElementById('notes').value,
-                createdAt: editingId ? subscriptions.find(s => s.id === editingId).createdAt : new Date().toISOString()
-            };
-
-            if (editingId) {
-                subscriptions = subscriptions.map(s => s.id === editingId ? formData : s);
-                showToast('Subscription updated');
-            } else {
-                subscriptions.push(formData);
-                showToast('Subscription added');
-            }
-
-            saveData();
-            renderSubscriptions();
-            closeModal();
+          });
         });
 
-        // Close modals on outside click
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
-        });
+        if (detected.length === 0) {
+          alert('No subscriptions detected. Try a bank statement CSV with service names.');
+          return;
+        }
 
-        // Initial render
-        renderSubscriptions();
-    </script>
+        if (confirm(`Found ${detected.length} subscription(s):\n\n${detected.map(d => '• ' + d.name + ' ' + eur(d.price)).join('\n')}\n\nAdd them?`)) {
+          subs.push(...detected);
+          saveData();
+          renderAll();
+          toast('Imported', `${detected.length} subscriptions added`);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    // ==================== GMAIL ====================
+    async function checkGmailStatus() {
+      try {
+        const res = await fetch(`${API_URL}/auth/status`);
+        const data = await res.json();
+        gmailConnected = data.connected;
+        updateGmailUI();
+      } catch (e) {
+        console.log('Backend not available');
+      }
+    }
+
+    function updateGmailUI() {
+      const status = document.getElementById('gmailStatus');
+      if (gmailConnected) {
+        status.textContent = '✓ Connected';
+        status.style.color = 'var(--good)';
+        document.getElementById('importGmail').classList.add('connected');
+      }
+    }
+
+    async function connectGmail() {
+      try {
+        const statusRes = await fetch(`${API_URL}/auth/status`);
+        const status = await statusRes.json();
+
+        if (status.connected) {
+          await scanGmail();
+        } else {
+          const authRes = await fetch(`${API_URL}/auth/gmail`);
+          const authData = await authRes.json();
+          const popup = window.open(authData.authUrl, 'Gmail Auth', 'width=500,height=600');
+
+          window.addEventListener('message', async (ev) => {
+            if (ev.data?.type === 'GMAIL_CONNECTED') {
+              gmailConnected = true;
+              updateGmailUI();
+              closeModal('gmailModal');
+              toast('Connected', 'Gmail linked! Scanning...');
+              await scanGmail();
+            }
+          });
+        }
+      } catch (e) {
+        alert('Backend not running. Start with:\n\ncd backend && npm start');
+      }
+    }
+
+    async function scanGmail() {
+      const scanDiv = document.getElementById('scanStatus');
+      scanDiv.innerHTML = '<div class="scanning"><div class="spinner"></div><div class="text"><strong>Scanning Gmail...</strong><br><span>Looking for subscription receipts</span></div></div>';
+
+      try {
+        const res = await fetch(`${API_URL}/api/scan-subscriptions`);
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Scan failed');
+
+        if (!data.subscriptions || data.subscriptions.length === 0) {
+          scanDiv.innerHTML = '<div class="card"><p style="text-align:center">No new subscriptions found in your inbox.</p></div>';
+          return;
+        }
+
+        const existing = subs.map(s => s.name.toLowerCase());
+        const newSubs = data.subscriptions.filter(s => !existing.includes(s.name.toLowerCase()));
+
+        if (newSubs.length === 0) {
+          scanDiv.innerHTML = '<div class="card"><p style="text-align:center">All detected subscriptions are already tracked!</p></div>';
+          return;
+        }
+
+        if (confirm(`Found ${newSubs.length} subscription(s):\n\n${newSubs.map(s => '• ' + s.name + (s.price ? ' ' + s.currency + s.price : '')).join('\n')}\n\nAdd them?`)) {
+          newSubs.forEach(s => {
+            subs.push({
+              id: crypto.randomUUID(),
+              name: s.name,
+              category: s.category || 'Other',
+              price: s.price || 9.99,
+              billing: 'monthly',
+              renewal: nextMonth(),
+              notes: 'Detected from Gmail',
+              source: 'gmail'
+            });
+          });
+          saveData();
+          renderAll();
+          toast('Added', `${newSubs.length} subscriptions imported`);
+        }
+        scanDiv.innerHTML = '';
+      } catch (e) {
+        scanDiv.innerHTML = `<div class="card" style="border-color:var(--bad)"><p style="color:var(--bad)">Scan failed: ${esc(e.message)}</p></div>`;
+      }
+    }
+
+    // ==================== MODALS ====================
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; editingId = null; }
+    window.closeModal = closeModal;
+
+    // ==================== TOAST ====================
+    let toastTimer;
+    function toast(title, body) {
+      document.getElementById('toastTitle').textContent = title;
+      document.getElementById('toastBody').textContent = body;
+      document.getElementById('toast').style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => document.getElementById('toast').style.display = 'none', 2600);
+    }
+    window.toast = toast;
+
+    // ==================== EVENT LISTENERS ====================
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if (tab.dataset.tab === 'import') {
+          document.getElementById('importPanel').style.display = 'block';
+          document.getElementById('mainGrid').style.display = 'none';
+        } else if (tab.dataset.tab === 'savings') {
+          document.getElementById('importPanel').style.display = 'none';
+          document.getElementById('mainGrid').style.display = 'grid';
+          toast('Savings', 'Review the sidebar for optimization tips!');
+        } else {
+          document.getElementById('importPanel').style.display = 'none';
+          document.getElementById('mainGrid').style.display = 'grid';
+        }
+      };
+    });
+
+    // Import cards
+    document.getElementById('importGmail').onclick = () => {
+      if (gmailConnected) { scanGmail(); }
+      else { openModal('gmailModal'); }
+    };
+    document.getElementById('importCSV').onclick = () => document.getElementById('csvInput').click();
+    document.getElementById('importJSON').onclick = () => document.getElementById('jsonInput').click();
+    document.getElementById('importManual').onclick = () => {
+      editingId = null;
+      document.getElementById('modalTitle').textContent = 'Add subscription';
+      document.getElementById('fName').value = '';
+      document.getElementById('fPrice').value = '';
+      document.getElementById('fRenewal').value = nextMonth();
+      document.getElementById('fNotes').value = '';
+      openModal('addModal');
+    };
+
+    document.getElementById('csvInput').onchange = importCSV;
+    document.getElementById('jsonInput').onchange = importJSON;
+
+    // Header buttons
+    document.getElementById('btnConnect').onclick = () => {
+      document.getElementById('importPanel').style.display = 'block';
+      document.getElementById('importPanel').scrollIntoView({ behavior: 'smooth' });
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('[data-tab="import"]').classList.add('active');
+    };
+    document.getElementById('btnEmptyConnect').onclick = () => document.getElementById('btnConnect').click();
+
+    // Search
+    document.getElementById('searchInput').oninput = e => renderTable(e.target.value);
+
+    // Add modal
+    document.getElementById('addClose').onclick = () => closeModal('addModal');
+    document.getElementById('btnCancelAdd').onclick = () => closeModal('addModal');
+    document.getElementById('addModal').onclick = e => { if (e.target.id === 'addModal') closeModal('addModal'); };
+    document.getElementById('btnSaveAdd').onclick = () => {
+      const name = document.getElementById('fName').value.trim();
+      const price = parseFloat(document.getElementById('fPrice').value);
+      const renewal = document.getElementById('fRenewal').value;
+      if (!name || !renewal || isNaN(price)) { toast('Error', 'Fill required fields'); return; }
+
+      if (editingId) {
+        const s = subs.find(x => x.id === editingId);
+        if (s) {
+          s.name = name;
+          s.category = document.getElementById('fCategory').value;
+          s.price = price;
+          s.billing = document.getElementById('fBilling').value;
+          s.renewal = renewal;
+          s.notes = document.getElementById('fNotes').value;
+        }
+      } else {
+        subs.push({
+          id: crypto.randomUUID(),
+          name,
+          category: document.getElementById('fCategory').value,
+          price,
+          billing: document.getElementById('fBilling').value,
+          renewal,
+          notes: document.getElementById('fNotes').value,
+          source: 'manual'
+        });
+      }
+      saveData();
+      closeModal('addModal');
+      renderAll();
+      toast('Saved', editingId ? 'Subscription updated' : 'Subscription added');
+    };
+
+    // Gmail modal
+    document.getElementById('gmailClose').onclick = () => closeModal('gmailModal');
+    document.getElementById('gmailModal').onclick = e => { if (e.target.id === 'gmailModal') closeModal('gmailModal'); };
+    document.getElementById('btnGmailAuth').onclick = () => connectGmail();
+
+    // Alt modal
+    document.getElementById('altClose').onclick = () => closeModal('altModal');
+    document.getElementById('altModal').onclick = e => { if (e.target.id === 'altModal') closeModal('altModal'); };
+
+    // ==================== INIT ====================
+    checkGmailStatus();
+    renderAll();
+    setTimeout(() => toast('👋 Welcome', 'Connect Gmail or upload CSV to auto-detect subscriptions.'), 800);
+  </script>
 </body>
 </html>
